@@ -220,39 +220,6 @@ contract EMJ is
     }
 
     //////////////////////////////////
-    //// Token URI (Dream — mojiemoji URL dynamic composition)
-    //////////////////////////////////
-
-    /// @dev Stamp.text per tokenId. UTF-8 bytes, left-aligned in bytes32 (NUL-padded).
-    mapping(uint256 => bytes32) private _stampText;
-
-    /**
-     * @dev set the Stamp.text for the given tokenId. Access control is intentionally
-     * absent here — tracked in a separate issue. Today this is a free-for-all setter
-     * just to drive the tokenURI spec from a test.
-     */
-    function setStampText(uint256 tokenId, bytes32 text) external checkTokenIdExists(tokenId) {
-        _stampText[tokenId] = text;
-    }
-
-    /**
-     * @dev token URI — Dream spec: dynamically compose a mojiemoji.jozo.beer URL from
-     * the on-chain text Param. The URL itself IS the image (stateless service), so no
-     * off-chain JSON / IPFS / Arweave hosting is involved.
-     */
-    function tokenURI(
-        uint256 tokenId
-    ) public view virtual override checkTokenIdExists(tokenId) returns (string memory) {
-        return
-            string(
-                abi.encodePacked(
-                    "https://mojiemoji.jozo.beer/?text=",
-                    _percentEncode(_bytes32ToBytes(_stampText[tokenId]))
-                )
-            );
-    }
-
-    //////////////////////////////////
     //// Keccak Prefix
     //////////////////////////////////
 
@@ -739,5 +706,43 @@ contract EMJ is
             mstore(out, j)
         }
         return string(out);
+    }
+
+    //////////////////////////////////
+    //// Token URI (Dream — mojiemoji URL dynamic composition)
+    ////
+    //// Storage layout note: this contract is upgradeable (UUPS proxy). New state
+    //// variables MUST be appended at the end of the existing layout to preserve
+    //// slot assignments of all previously declared state. `_stampText` is the most
+    //// recent addition; keep any future additions below this line.
+    //////////////////////////////////
+
+    /// @dev Stamp.text per tokenId. UTF-8 bytes, left-aligned in bytes32 (NUL-padded).
+    mapping(uint256 => bytes32) private _stampText;
+
+    /**
+     * @dev set the Stamp.text for the given tokenId. Access control is intentionally
+     * absent here — tracked in a separate issue. Today this is a free-for-all setter
+     * just to drive the tokenURI spec from a test.
+     */
+    function setStampText(uint256 tokenId, bytes32 text) external checkTokenIdExists(tokenId) {
+        _stampText[tokenId] = text;
+    }
+
+    /**
+     * @dev token URI — Dream spec: dynamically compose a mojiemoji.jozo.beer URL from
+     * the on-chain text Param. The URL itself IS the image (stateless service), so no
+     * off-chain JSON / IPFS / Arweave hosting is involved.
+     */
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override checkTokenIdExists(tokenId) returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "https://mojiemoji.jozo.beer/?text=",
+                    _percentEncode(_bytes32ToBytes(_stampText[tokenId]))
+                )
+            );
     }
 }
