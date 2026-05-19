@@ -795,9 +795,15 @@ contract EMJ is
             } else if (b < 0xF0) {
                 // 3-byte UTF-8 codepoint (kanji / hiragana / others in the BMP).
                 require(j + 2 < len, "truncated UTF-8");
+                uint8 b1 = uint8(text[j + 1]);
+                uint8 b2 = uint8(text[j + 2]);
+                // Continuation bytes must match 10xxxxxx — otherwise the masked
+                // decode below would silently fabricate a bogus codepoint.
+                require((b1 & 0xC0) == 0x80, "invalid UTF-8 continuation");
+                require((b2 & 0xC0) == 0x80, "invalid UTF-8 continuation");
                 uint256 cp = (uint256(b & 0x0F) << 12) |
-                    (uint256(uint8(text[j + 1]) & 0x3F) << 6) |
-                    uint256(uint8(text[j + 2]) & 0x3F);
+                    (uint256(b1 & 0x3F) << 6) |
+                    uint256(b2 & 0x3F);
                 if (cp >= 0x4E00 && cp <= 0x9FFF) {
                     kanji += 1;
                     require(kanji <= 2, "too many kanji");

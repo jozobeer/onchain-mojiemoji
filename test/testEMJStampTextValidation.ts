@@ -152,6 +152,43 @@ describe("EMJ setStampText validation", () => {
         })
     })
 
+    describe("Malformed UTF-8 — reverts", () => {
+        it("Reverts when a 3-byte sequence's continuation byte is not 10xxxxxx", async () => {
+            const [, alice] = await ethers.getSigners()
+            const instance = await deployFresh()
+            await mintTo(instance, alice.address, 1)
+
+            // 「勝」leading byte 0xE5, then 0x8B (valid continuation), then 0x0A (LF — NOT a continuation).
+            // The naive masked decode would treat 0x0A & 0x3F = 0x0A and fabricate U+58CA
+            // (a valid CJK ideograph), accepting it as one kanji. The fix requires
+            // (text[j+2] & 0xC0) == 0x80 before computing the codepoint.
+            const malformed = bytes32FromRaw([
+                new Uint8Array([0xe5, 0x8b, 0x0a]),
+            ])
+            const raw = getBytes(malformed)
+            expect(raw[0]).to.equal(0xe5)
+            expect(raw[1]).to.equal(0x8b)
+            expect(raw[2]).to.equal(0x0a)
+
+            await expect(instance.connect(alice).setStampText(1, malformed))
+                .to.be.reverted
+        })
+
+        it("Reverts when the second byte of a 3-byte sequence is not 10xxxxxx", async () => {
+            const [, alice] = await ethers.getSigners()
+            const instance = await deployFresh()
+            await mintTo(instance, alice.address, 1)
+
+            // 0xE3 (3-byte leader) + 0xC1 (NOT a continuation byte — it's a 2-byte leader)
+            // + 0x81 (would be a valid continuation if the previous byte were valid).
+            const malformed = bytes32FromRaw([
+                new Uint8Array([0xe3, 0xc1, 0x81]),
+            ])
+            await expect(instance.connect(alice).setStampText(1, malformed))
+                .to.be.reverted
+        })
+    })
+
     describe("Mid-NUL — reverts", () => {
         it("Reverts when a NUL byte appears between non-NUL bytes (not strict left-aligned)", async () => {
             const [, alice] = await ethers.getSigners()
