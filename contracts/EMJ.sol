@@ -721,12 +721,104 @@ contract EMJ is
     mapping(uint256 => bytes32) private _stampText;
 
     /**
-     * @dev set the Stamp.text for the given tokenId. Access control is intentionally
-     * absent here — tracked in a separate issue. Today this is a free-for-all setter
-     * just to drive the tokenURI spec from a test.
+     * @dev access control for setStampText: caller must be either the token owner
+     * (current holder) or the contract owner. Mirrors the burn() pattern.
      */
-    function setStampText(uint256 tokenId, bytes32 text) external checkTokenIdExists(tokenId) {
+    modifier onlyTokenOwnerOrContractOwner(uint256 tokenId) {
+        require(
+            msg.sender == ownerOf(tokenId) || msg.sender == owner(),
+            "not token owner nor contract owner"
+        );
+        _;
+    }
+
+    /**
+     * @dev set the Stamp.text for the given tokenId. Validates per ADR-0001:
+     * left-aligned UTF-8 in bytes32, at most 2 kanji + 4 hiragana + 1 newline,
+     * newline (if present) must sit between non-newline characters.
+     */
+    function setStampText(uint256 tokenId, bytes32 text)
+        external
+        checkTokenIdExists(tokenId)
+        onlyTokenOwnerOrContractOwner(tokenId)
+    {
+        _validateStampText(text);
         _stampText[tokenId] = text;
+    }
+
+    /**
+     * @dev validate the stamp text against the ADR-0001 grammar:
+     *   - Non-empty, left-aligned UTF-8 in bytes32 (no mid-NUL)
+     *   - Each codepoint is kanji (U+4E00–U+9FFF), hiragana (U+3040–U+309F), or '\n'
+     *   - Counts: kanji ≤ 2, hiragana ≤ 4, newline ≤ 1
+     *   - Newline must not appear at position 0 or len-1 (i.e., must have content on both sides)
+     * Reverts with a descriptive reason string on any violation.
+     */
+    function _validateStampText(bytes32 text) private pure {
+        // Find logical length: position of first NUL byte (left-aligned text).
+        uint256 len = 32;
+        for (uint256 i = 0; i < 32; i++) {
+            if (text[i] == 0) {
+                len = i;
+                break;
+            }
+        }
+        require(len > 0, "empty text");
+
+        // Strict left-alignment: everything after `len` must remain NUL.
+        for (uint256 i = len; i < 32; i++) {
+            require(text[i] == 0, "mid-NUL not allowed");
+        }
+
+        // Reject newline at start or end. The walk below caps newline count at 1,
+        // so these two guards together force any newline into a middle position
+        // with content on both sides.
+        require(uint8(text[0]) != 0x0A, "leading newline");
+        require(uint8(text[len - 1]) != 0x0A, "trailing newline");
+
+        // Walk UTF-8 codepoints, classify each, enforce per-category caps.
+        uint256 kanji = 0;
+        uint256 hiragana = 0;
+        uint256 newlines = 0;
+        uint256 j = 0;
+        while (j < len) {
+            uint8 b = uint8(text[j]);
+            if (b == 0x0A) {
+                newlines += 1;
+                require(newlines <= 1, "too many newlines");
+                j += 1;
+            } else if (b < 0x80) {
+                revert("invalid charset");
+            } else if (b < 0xE0) {
+                // 2-byte UTF-8 leading byte — not in the allowed alphabet.
+                revert("invalid charset");
+            } else if (b < 0xF0) {
+                // 3-byte UTF-8 codepoint (kanji / hiragana / others in the BMP).
+                require(j + 2 < len, "truncated UTF-8");
+                uint8 b1 = uint8(text[j + 1]);
+                uint8 b2 = uint8(text[j + 2]);
+                // Continuation bytes must match 10xxxxxx — otherwise the masked
+                // decode below would silently fabricate a bogus codepoint.
+                require((b1 & 0xC0) == 0x80, "invalid UTF-8 continuation");
+                require((b2 & 0xC0) == 0x80, "invalid UTF-8 continuation");
+                uint256 cp = (uint256(b & 0x0F) << 12) |
+                    (uint256(b1 & 0x3F) << 6) |
+                    uint256(b2 & 0x3F);
+                if (cp >= 0x4E00 && cp <= 0x9FFF) {
+                    kanji += 1;
+                    require(kanji <= 2, "too many kanji");
+                } else if (cp >= 0x3040 && cp <= 0x309F) {
+                    hiragana += 1;
+                    require(hiragana <= 4, "too many hiragana");
+                } else {
+                    revert("invalid charset");
+                }
+                j += 3;
+            } else {
+                // 4-byte UTF-8 (emoji etc.) — not allowed.
+                revert("invalid charset");
+            }
+        }
     }
 
     /**
