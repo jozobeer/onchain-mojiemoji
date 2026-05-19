@@ -220,24 +220,6 @@ contract EMJ is
     }
 
     //////////////////////////////////
-    //// Token URI
-    //////////////////////////////////
-
-    /**
-     * @dev token URI.
-     * @param tokenId token id to get URI.
-     */
-    function tokenURI(
-        uint256 tokenId
-    ) public view virtual override checkTokenIdExists(tokenId) returns (string memory) {
-        if (revealTimestamp > 0 && block.timestamp < revealTimestamp) {
-            return string(abi.encodePacked(baseURI, "seed.json"));
-        }
-        bytes32 keccak = keccak256(abi.encodePacked(_keccakPrefix, tokenId.toString()));
-        return string(abi.encodePacked(baseURI, _toHexString(keccak), ".json"));
-    }
-
-    //////////////////////////////////
     //// Keccak Prefix
     //////////////////////////////////
 
@@ -673,5 +655,94 @@ contract EMJ is
         bytes memory result = new bytes(length);
         for (uint256 i = 1; i <= length; i++ + (k >>= 4)) result[length - i] = symbols[k & 0xf];
         return string(result);
+    }
+
+    /**
+     * @dev convert bytes32 to bytes, trimming trailing NUL padding.
+     * Left-aligned UTF-8 in bytes32 means the first 0x00 marks the logical end.
+     */
+    function _bytes32ToBytes(bytes32 data) private pure returns (bytes memory) {
+        uint256 len = 32;
+        while (len > 0 && data[len - 1] == 0) {
+            len--;
+        }
+        bytes memory result = new bytes(len);
+        for (uint256 i = 0; i < len; i++) {
+            result[i] = data[i];
+        }
+        return result;
+    }
+
+    /**
+     * @dev RFC 3986 percent-encoding. Unreserved characters (A-Z a-z 0-9 - . _ ~)
+     * pass through; every other byte expands to %XX with uppercase hex.
+     * tokenURI is a view function so the gas cost of this loop is paid by no one
+     * on-chain — read-only callers absorb it server-side.
+     */
+    function _percentEncode(bytes memory data) private pure returns (string memory) {
+        bytes16 HEX = "0123456789ABCDEF";
+        bytes memory out = new bytes(data.length * 3);
+        uint256 j;
+        for (uint256 i = 0; i < data.length; i++) {
+            bytes1 b = data[i];
+            if (
+                (b >= 0x30 && b <= 0x39) ||
+                (b >= 0x41 && b <= 0x5A) ||
+                (b >= 0x61 && b <= 0x7A) ||
+                b == 0x2D ||
+                b == 0x2E ||
+                b == 0x5F ||
+                b == 0x7E
+            ) {
+                out[j++] = b;
+                continue;
+            }
+            out[j++] = "%";
+            out[j++] = HEX[uint8(b) >> 4];
+            out[j++] = HEX[uint8(b) & 0x0F];
+        }
+        // Shrink the output to the actually-written length.
+        assembly {
+            mstore(out, j)
+        }
+        return string(out);
+    }
+
+    //////////////////////////////////
+    //// Token URI (Dream — mojiemoji URL dynamic composition)
+    ////
+    //// Storage layout note: this contract is upgradeable (UUPS proxy). New state
+    //// variables MUST be appended at the end of the existing layout to preserve
+    //// slot assignments of all previously declared state. `_stampText` is the most
+    //// recent addition; keep any future additions below this line.
+    //////////////////////////////////
+
+    /// @dev Stamp.text per tokenId. UTF-8 bytes, left-aligned in bytes32 (NUL-padded).
+    mapping(uint256 => bytes32) private _stampText;
+
+    /**
+     * @dev set the Stamp.text for the given tokenId. Access control is intentionally
+     * absent here — tracked in a separate issue. Today this is a free-for-all setter
+     * just to drive the tokenURI spec from a test.
+     */
+    function setStampText(uint256 tokenId, bytes32 text) external checkTokenIdExists(tokenId) {
+        _stampText[tokenId] = text;
+    }
+
+    /**
+     * @dev token URI — Dream spec: dynamically compose a mojiemoji.jozo.beer URL from
+     * the on-chain text Param. The URL itself IS the image (stateless service), so no
+     * off-chain JSON / IPFS / Arweave hosting is involved.
+     */
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override checkTokenIdExists(tokenId) returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "https://mojiemoji.jozo.beer/?text=",
+                    _percentEncode(_bytes32ToBytes(_stampText[tokenId]))
+                )
+            );
     }
 }
