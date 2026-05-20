@@ -19,12 +19,24 @@
 
 pragma solidity >=0.8;
 
-import {ERC721PsiBurnableUpgradeable, ERC721PsiUpgradeable} from "@generald/erc721psi/contracts/extension/ERC721PsiBurnableUpgradeable.sol";
-import {Ownable2StepUpgradeable, OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {IERC2981Upgradeable, IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC2981Upgradeable.sol";
+import {
+    ERC721PsiBurnableUpgradeable,
+    ERC721PsiUpgradeable
+} from "@generald/erc721psi/contracts/extension/ERC721PsiBurnableUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable,
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    IERC2981Upgradeable,
+    IERC165Upgradeable
+} from "@openzeppelin/contracts-upgradeable/interfaces/IERC2981Upgradeable.sol";
 import {MerkleProofUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import {StringsUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
-import {RevokableDefaultOperatorFiltererUpgradeable, RevokableOperatorFiltererUpgradeable} from "operator-filter-registry/src/upgradeable/RevokableDefaultOperatorFiltererUpgradeable.sol";
+import {
+    RevokableDefaultOperatorFiltererUpgradeable,
+    RevokableOperatorFiltererUpgradeable
+} from "operator-filter-registry/src/upgradeable/RevokableDefaultOperatorFiltererUpgradeable.sol";
 import {IPublicMintable} from "./interfaces/IPublicMintable.sol";
 import {IAllowlistMintable} from "./interfaces/IAllowlistMintable.sol";
 
@@ -725,10 +737,7 @@ contract EMJ is
      * (current holder) or the contract owner. Mirrors the burn() pattern.
      */
     modifier onlyTokenOwnerOrContractOwner(uint256 tokenId) {
-        require(
-            msg.sender == ownerOf(tokenId) || msg.sender == owner(),
-            "not token owner nor contract owner"
-        );
+        require(msg.sender == ownerOf(tokenId) || msg.sender == owner(), "not token owner nor contract owner");
         _;
     }
 
@@ -737,11 +746,10 @@ contract EMJ is
      * left-aligned UTF-8 in bytes32, at most 2 kanji + 4 hiragana + 1 newline,
      * newline (if present) must sit between non-newline characters.
      */
-    function setStampText(uint256 tokenId, bytes32 text)
-        external
-        checkTokenIdExists(tokenId)
-        onlyTokenOwnerOrContractOwner(tokenId)
-    {
+    function setStampText(
+        uint256 tokenId,
+        bytes32 text
+    ) external checkTokenIdExists(tokenId) onlyTokenOwnerOrContractOwner(tokenId) {
         _validateStampText(text);
         _stampText[tokenId] = text;
     }
@@ -801,9 +809,7 @@ contract EMJ is
                 // decode below would silently fabricate a bogus codepoint.
                 require((b1 & 0xC0) == 0x80, "invalid UTF-8 continuation");
                 require((b2 & 0xC0) == 0x80, "invalid UTF-8 continuation");
-                uint256 cp = (uint256(b & 0x0F) << 12) |
-                    (uint256(b1 & 0x3F) << 6) |
-                    uint256(b2 & 0x3F);
+                uint256 cp = (uint256(b & 0x0F) << 12) | (uint256(b1 & 0x3F) << 6) | uint256(b2 & 0x3F);
                 if (cp >= 0x4E00 && cp <= 0x9FFF) {
                     kanji += 1;
                     require(kanji <= 2, "too many kanji");
