@@ -44,22 +44,24 @@
 
 ## Quick Start
 
+このリポは [**pnpm**](https://pnpm.io/) で管理。Node は `.node-version` (22.x LTS) に揃えると安全。
+
 ```shell
-npm install --legacy-peer-deps
-npx hardhat compile
-npx hardhat test
-npx hardhat coverage
+pnpm install
+pnpm run compile
+pnpm test
+pnpm run coverage
 ```
 
 主なタスク：
 
 ```shell
-npx hardhat accounts
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-REPORT_GAS=true npx hardhat test
-npx eslint '**/*.{js,ts}' --fix
-npx solhint 'contracts/**/*.sol' --fix
+pnpm exec hardhat accounts
+pnpm exec hardhat node
+pnpm exec hardhat run scripts/deploy.ts
+REPORT_GAS=true pnpm test
+pnpm exec eslint '**/*.{js,ts}' --fix
+pnpm exec solhint 'contracts/**/*.sol' --fix
 ```
 
 ## 開発ルール
