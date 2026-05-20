@@ -3,7 +3,7 @@
   "private": true,
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
     "@generald/erc721psi": "github:GeneralD/ERC721Psi#1.0.0",
