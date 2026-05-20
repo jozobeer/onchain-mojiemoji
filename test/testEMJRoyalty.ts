@@ -1,15 +1,15 @@
-import { expect } from 'chai'
-import { parseEther } from 'ethers'
-import { ethers, upgrades } from 'hardhat'
-import { describe, it } from 'mocha'
+import { expect } from "chai"
+import { parseEther } from "ethers"
+import { ethers, upgrades } from "hardhat"
+import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
 
 describe("EMJ Royalty (EIP2981)", () => {
     it("Check royalty fee", async () => {
         const [deployer] = await ethers.getSigners()
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(10)
         await instance.adminMint(10)
@@ -22,15 +22,14 @@ describe("EMJ Royalty (EIP2981)", () => {
 
     it("Reading royalty info should be reverted when the tokenId is not minted yet", async () => {
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await expect(instance.royaltyInfo(100, parseEther("1"))).to.reverted
     })
 
-
     it("Reading royalty info should be reverted when the tokenId is already burnt", async () => {
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(10)
         await instance.adminMint(10)

@@ -1,13 +1,13 @@
-import { expect } from 'chai'
-import { encodeBytes32String, keccak256, toUtf8Bytes } from 'ethers'
-import { upgrades } from 'hardhat'
-import { describe, it } from 'mocha'
+import { expect } from "chai"
+import { encodeBytes32String, keccak256, toUtf8Bytes } from "ethers"
+import { upgrades } from "hardhat"
+import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
 
 describe("EMJ TokenURI", () => {
     it("Check if TokenURI doesn't end with slash, the value will be reverted", async () => {
-        const instance = await upgrades.deployProxy(await latestEMJFactory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(await latestEMJFactory)) as LatestEMJ
         // URI ends with slash is ok
         await expect(instance.setBaseURI("https://sample.com/")).to.not.be.reverted
         // but URI without slash is not ok
@@ -15,7 +15,7 @@ describe("EMJ TokenURI", () => {
     })
 
     it("Check if revealTimestamp is not set, always returns individual URI", async () => {
-        const instance = await upgrades.deployProxy(await latestEMJFactory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(await latestEMJFactory)) as LatestEMJ
         await instance.setMintLimit(10)
         await instance.setBaseURI("https://sample.com/")
         await instance.setKeccakPrefix("Ex_")
@@ -26,12 +26,11 @@ describe("EMJ TokenURI", () => {
         expect(hash.startsWith("0x")).to.be.true
         const name = hash.substring(2)
 
-        expect(await instance.tokenURI(3))
-            .to.equal(`https://sample.com/${name}.json`)
+        expect(await instance.tokenURI(3)).to.equal(`https://sample.com/${name}.json`)
     })
 
     it("Check if revealTimestamp is set, returns seed URI before revealTimestamp", async () => {
-        const instance = await upgrades.deployProxy(await latestEMJFactory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(await latestEMJFactory)) as LatestEMJ
         await instance.setMintLimit(10)
         await instance.setBaseURI("https://sample.com/")
         await instance.setKeccakPrefix("Ex_")
@@ -41,12 +40,11 @@ describe("EMJ TokenURI", () => {
 
         await instance.adminMint(5)
 
-        expect(await instance.tokenURI(3))
-            .to.equal(`https://sample.com/seed.json`)
+        expect(await instance.tokenURI(3)).to.equal(`https://sample.com/seed.json`)
     })
 
     it("Check if revealTimestamp is set, returns individual URI after revealTimestamp", async () => {
-        const instance = await upgrades.deployProxy(await latestEMJFactory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(await latestEMJFactory)) as LatestEMJ
         await instance.setMintLimit(10)
         await instance.setBaseURI("https://sample.com/")
         await instance.setKeccakPrefix("Ex_")
@@ -60,12 +58,11 @@ describe("EMJ TokenURI", () => {
         expect(hash.startsWith("0x")).to.be.true
         const name = hash.substring(2)
 
-        expect(await instance.tokenURI(3))
-            .to.equal(`https://sample.com/${name}.json`)
+        expect(await instance.tokenURI(3)).to.equal(`https://sample.com/${name}.json`)
     })
 
     it("Check if revealTimestamp means just now, returns individual URI after revealTimestamp", async () => {
-        const instance = await upgrades.deployProxy(await latestEMJFactory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(await latestEMJFactory)) as LatestEMJ
         await instance.setMintLimit(10)
         await instance.setBaseURI("https://sample.com/")
         await instance.setKeccakPrefix("Ex_")
@@ -79,8 +76,7 @@ describe("EMJ TokenURI", () => {
         expect(hash.startsWith("0x")).to.be.true
         const name = hash.substring(2)
 
-        expect(await instance.tokenURI(3))
-            .to.equal(`https://sample.com/${name}.json`)
+        expect(await instance.tokenURI(3)).to.equal(`https://sample.com/${name}.json`)
     })
 
     // Dream 仕様 ─ mojiemoji.jozo.beer URL のオンチェーン動的合成
@@ -94,12 +90,11 @@ describe("EMJ TokenURI", () => {
         setStampText: (tokenId: bigint | number, text: string) => Promise<unknown>
     }
     it("Returns mojiemoji URL composed from on-chain bytes32 text Param", async () => {
-        const instance = await upgrades.deployProxy(await latestEMJFactory) as unknown as WithStampSetter
+        const instance = (await upgrades.deployProxy(await latestEMJFactory)) as unknown as WithStampSetter
         await instance.setMintLimit(10)
         await instance.adminMint(1)
         await instance.setStampText(1, encodeBytes32String("勝利"))
 
-        expect(await instance.tokenURI(1))
-            .to.equal(`https://mojiemoji.jozo.beer/?text=${encodeURIComponent("勝利")}`)
+        expect(await instance.tokenURI(1)).to.equal(`https://mojiemoji.jozo.beer/?text=${encodeURIComponent("勝利")}`)
     })
 })

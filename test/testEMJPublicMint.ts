@@ -1,14 +1,14 @@
-import { expect } from 'chai'
-import { ZeroAddress } from 'ethers'
-import { ethers, upgrades } from 'hardhat'
-import { describe, it } from 'mocha'
+import { expect } from "chai"
+import { ZeroAddress } from "ethers"
+import { ethers, upgrades } from "hardhat"
+import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
 
 describe("EMJ Public Minting", () => {
     it("Mint limit is set, then publicMintLastTokenId should be set", async () => {
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(300)
 
@@ -19,7 +19,7 @@ describe("EMJ Public Minting", () => {
     it("Can public mint", async () => {
         const [, john] = await ethers.getSigners()
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(300)
 
@@ -44,7 +44,7 @@ describe("EMJ Public Minting", () => {
     it("Can't public-mint over the limit", async () => {
         const [, john] = await ethers.getSigners()
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(300)
 
@@ -55,14 +55,15 @@ describe("EMJ Public Minting", () => {
         const balance = await ethers.provider.getBalance(john)
         expect(balance).is.greaterThanOrEqual(totalPrice)
 
-        await expect(instance.connect(john).publicMint(quantity, { value: totalPrice }))
-            .to.revertedWith("minting exceeds the limit")
+        await expect(instance.connect(john).publicMint(quantity, { value: totalPrice })).to.revertedWith(
+            "minting exceeds the limit",
+        )
     })
 
     it("Cannot mint if sent ETH is not enough", async () => {
         const [, john] = await ethers.getSigners()
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(300)
 
@@ -74,15 +75,16 @@ describe("EMJ Public Minting", () => {
         expect(balance).is.greaterThanOrEqual(totalPrice)
 
         // try to mint without enough ETH
-        const paid = totalPrice * 99n / 100n // 99% of the total price
-        await expect(instance.connect(john).publicMint(quantity, { value: paid }))
-            .to.revertedWith("invalid amount of eth sent")
+        const paid = (totalPrice * 99n) / 100n // 99% of the total price
+        await expect(instance.connect(john).publicMint(quantity, { value: paid })).to.revertedWith(
+            "invalid amount of eth sent",
+        )
     })
 
     it("Public minting emits events", async () => {
         const [, john] = await ethers.getSigners()
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(300)
 

@@ -1,5 +1,5 @@
-import { formatEther } from 'ethers'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { formatEther } from "ethers"
+import { HardhatRuntimeEnvironment } from "hardhat/types"
 
 export default async (arg: any, env: HardhatRuntimeEnvironment) => {
     const [deployer] = await env.ethers.getSigners()

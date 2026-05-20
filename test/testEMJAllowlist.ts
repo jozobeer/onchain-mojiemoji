@@ -1,20 +1,20 @@
-import { expect } from 'chai'
-import { keccak256 } from 'ethers'
-import { ethers, upgrades } from 'hardhat'
-import { describe, it } from 'mocha'
+import { expect } from "chai"
+import { keccak256 } from "ethers"
+import { ethers, upgrades } from "hardhat"
+import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
-import createMerkleTree from '../libraries/createMerkleTree'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import createMerkleTree from "../libraries/createMerkleTree"
 
 describe("EMJ allowlist", () => {
     it("Allowlisted member is verified", async () => {
         const [, john, jonny, jonathan] = await ethers.getSigners()
-        const allowlisted = [john, jonny, jonathan].map(account => account.address)
+        const allowlisted = [john, jonny, jonathan].map((account) => account.address)
         const tree = createMerkleTree(allowlisted)
         const root = tree.getHexRoot()
 
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setAllowlist(root)
 
@@ -31,12 +31,12 @@ describe("EMJ allowlist", () => {
 
     it("Not allowlisted member is not verified", async () => {
         const [deployer, john, jonny, jonathan, mike, michael, mick] = await ethers.getSigners()
-        const allowlisted = [john, jonny, jonathan].map(account => account.address)
+        const allowlisted = [john, jonny, jonathan].map((account) => account.address)
         const tree = createMerkleTree(allowlisted)
         const root = tree.getHexRoot()
 
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setAllowlist(root)
 
@@ -57,12 +57,12 @@ describe("EMJ allowlist", () => {
 
     it("Other's hex proof is invalid", async () => {
         const [, john, jonny, jonathan, mike] = await ethers.getSigners()
-        const allowlisted = [john, jonny, jonathan].map(account => account.address)
+        const allowlisted = [john, jonny, jonathan].map((account) => account.address)
         const tree = createMerkleTree(allowlisted)
         const root = tree.getHexRoot()
 
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setAllowlist(root)
 

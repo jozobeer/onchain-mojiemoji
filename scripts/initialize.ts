@@ -1,8 +1,8 @@
-import { parseEther } from 'ethers'
-import env, { ethers } from 'hardhat'
+import { parseEther } from "ethers"
+import env, { ethers } from "hardhat"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
-import HardhatRuntimeUtility from '../libraries/HardhatRuntimeUtility'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import HardhatRuntimeUtility from "../libraries/HardhatRuntimeUtility"
 
 async function main() {
     const util = new HardhatRuntimeUtility(env)
@@ -33,7 +33,11 @@ async function main() {
 
     const publicMintStartDate = new Date("2023-10-01T00:00:00Z")
     const publicMintEndDate = new Date("2023-10-31T23:59:59Z")
-    await instance.setPublicMintAvailablePeriod(Math.floor(publicMintStartDate.getTime() / 1000), Math.floor(publicMintEndDate.getTime() / 1000), { nonce: nonce++ })
+    await instance.setPublicMintAvailablePeriod(
+        Math.floor(publicMintStartDate.getTime() / 1000),
+        Math.floor(publicMintEndDate.getTime() / 1000),
+        { nonce: nonce++ },
+    )
 
     ///////////////////////////////////////////////////////////////////
     //// Allowlist minting period
@@ -41,7 +45,11 @@ async function main() {
 
     const allowlistMintStartDate = new Date("2023-10-01T00:00:00Z")
     const allowlistMintEndDate = new Date("2023-10-31T23:59:59Z")
-    await instance.setAllowlistMintAvailablePeriod(Math.floor(allowlistMintStartDate.getTime() / 1000), Math.floor(allowlistMintEndDate.getTime() / 1000), { nonce: nonce++ })
+    await instance.setAllowlistMintAvailablePeriod(
+        Math.floor(allowlistMintStartDate.getTime() / 1000),
+        Math.floor(allowlistMintEndDate.getTime() / 1000),
+        { nonce: nonce++ },
+    )
 
     ///////////////////////////////////////////////////////////////////
     //// Pricing
@@ -72,7 +80,7 @@ async function main() {
     await instance.setWithdrawalReceiver("0x5555555555666666666677777777778888888888", { nonce: nonce++ })
 }
 
-main().catch(error => {
+main().catch((error) => {
     console.error(error)
     process.exitCode = 1
 })

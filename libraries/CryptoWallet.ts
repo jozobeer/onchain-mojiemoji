@@ -1,5 +1,5 @@
-import { randomBytes } from 'crypto'
-import { BitcoinAddress, EthereumAddress, HDKey, Mnemonic } from 'wallet.ts'
+import { randomBytes } from "crypto"
+import { BitcoinAddress, EthereumAddress, HDKey, Mnemonic } from "wallet.ts"
 
 export default class {
     ethereumAddress: string
