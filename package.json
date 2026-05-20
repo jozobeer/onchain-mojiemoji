@@ -59,5 +59,11 @@
     "verify": "hardhat verifyProxy",
     "balance": "hardhat balance",
     "proxy": "hardhat proxyAddress"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "keccak",
+      "secp256k1"
+    ]
   }
 }
