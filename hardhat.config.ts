@@ -24,7 +24,7 @@ task("balance").setDescription("Prints the balance of an account").setAction(che
 
 task("proxyAddress").setDescription("Prints the address of the deployed proxy").setAction(checkProxyAddressTask)
 
-task("vefityProxy").setDescription("Verifies the deployed proxy").setAction(verifyTask)
+task("verifyProxy").setDescription("Verifies the deployed proxy").setAction(verifyTask)
 
 task("exportAllowlist")
     .setDescription("Export hashed-allowlist addresses to a JSON file")

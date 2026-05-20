@@ -17,7 +17,7 @@ export default class {
 
     public allowlistedAddresses = () => [
         ...new Set(
-            process.env.ALLOWLIST_ADDRESSES?.split("\n")
+            (process.env.ALLOWLIST_ADDRESSES?.split("\n") ?? [])
                 .filter((address) => this.addressRegex.test(address))
                 .map((address) => this.env.ethers.getAddress(address)),
         ),
