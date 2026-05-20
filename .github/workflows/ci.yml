@@ -15,21 +15,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          # 11.x は pnpm-workspace.yaml の onlyBuiltDependencies が CI で
+          # 認識されず ERR_PNPM_IGNORED_BUILDS で fail するため、10 系 latest に pin
+          version: 10.33.4
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        # --legacy-peer-deps: hardhat-gas-reporter@2 と toolbox@5 の peer conflict
-        # を回避（Issue #5 に明記、Phase 3 で toolbox@7 に上げて解消予定）
-        run: npm ci --legacy-peer-deps
+        run: pnpm install --frozen-lockfile
 
       - name: Compile contracts
-        run: npx hardhat compile
+        run: pnpm run compile
 
       - name: Run tests
-        run: npx hardhat test
+        run: pnpm test
 
       - name: Lint
-        run: npx eslint .
+        run: pnpm exec eslint .

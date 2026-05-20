@@ -200,6 +200,7 @@ deploy_mnemonic.key
 ### OpenZeppelin
 .openzeppelin/unknown-*.json
 
-### yarn (project uses npm; keep yarn.lock from accidentally being recreated)
+### Lockfiles from other package managers (project uses pnpm)
 yarn.lock
+package-lock.json
 

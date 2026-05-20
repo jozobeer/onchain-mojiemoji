@@ -1,0 +1,4 @@
+# Native binding build scripts allowlist (pnpm 11+)
+onlyBuiltDependencies:
+  - keccak
+  - secp256k1
