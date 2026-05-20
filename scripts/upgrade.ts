@@ -1,7 +1,7 @@
-import env, { upgrades } from 'hardhat'
+import env, { upgrades } from "hardhat"
 
-import { latestEMJFactory } from '../libraries/const'
-import HardhatRuntimeUtility from '../libraries/HardhatRuntimeUtility'
+import { latestEMJFactory } from "../libraries/const"
+import HardhatRuntimeUtility from "../libraries/HardhatRuntimeUtility"
 
 async function main() {
     const util = new HardhatRuntimeUtility(env)
@@ -10,7 +10,7 @@ async function main() {
     await instance.deployed()
 }
 
-main().catch(error => {
+main().catch((error) => {
     console.error(error)
     process.exitCode = 1
 })

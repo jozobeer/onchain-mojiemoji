@@ -1,9 +1,9 @@
-import { expect } from 'chai'
-import { encodeBytes32String, getBytes, hexlify, zeroPadBytes } from 'ethers'
-import { ethers, upgrades } from 'hardhat'
-import { describe, it } from 'mocha'
+import { expect } from "chai"
+import { encodeBytes32String, getBytes, hexlify, zeroPadBytes } from "ethers"
+import { ethers, upgrades } from "hardhat"
+import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
 
 // Build a bytes32 by concatenating raw UTF-8 byte sequences, left-aligned with NUL padding.
 // Used to inject patterns that `encodeBytes32String` won't produce — e.g. mid-NUL sequences.
@@ -18,7 +18,7 @@ const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s)
 
 const deployFresh = async (): Promise<LatestEMJ> => {
     const factory = await latestEMJFactory
-    return await upgrades.deployProxy(factory) as LatestEMJ
+    return (await upgrades.deployProxy(factory)) as LatestEMJ
 }
 
 // Mint `count` tokens to `to`, after raising the limit. tokenIds start at 1 (per _startTokenId).
@@ -35,8 +35,7 @@ const registerAccepts = (title: string, text: string): void => {
         const instance = await deployFresh()
         await mintTo(instance, alice.address, 1)
 
-        await expect(instance.connect(alice).setStampText(1, encodeBytes32String(text)))
-            .to.not.be.reverted
+        await expect(instance.connect(alice).setStampText(1, encodeBytes32String(text))).to.not.be.reverted
     })
 }
 
@@ -46,8 +45,7 @@ const registerReverts = (title: string, text: string): void => {
         const instance = await deployFresh()
         await mintTo(instance, alice.address, 1)
 
-        await expect(instance.connect(alice).setStampText(1, encodeBytes32String(text)))
-            .to.be.reverted
+        await expect(instance.connect(alice).setStampText(1, encodeBytes32String(text))).to.be.reverted
     })
 }
 
@@ -58,8 +56,7 @@ describe("EMJ setStampText validation", () => {
             const instance = await deployFresh()
             await mintTo(instance, alice.address, 1)
 
-            await expect(instance.connect(alice).setStampText(1, encodeBytes32String("勝利")))
-                .to.not.be.reverted
+            await expect(instance.connect(alice).setStampText(1, encodeBytes32String("勝利"))).to.not.be.reverted
         })
 
         it("Contract owner can set stamp text on a token they don't own", async () => {
@@ -69,8 +66,7 @@ describe("EMJ setStampText validation", () => {
             expect(await instance.owner()).to.equal(deployer.address)
             expect(await instance.ownerOf(1)).to.equal(alice.address)
 
-            await expect(instance.setStampText(1, encodeBytes32String("勝利")))
-                .to.not.be.reverted
+            await expect(instance.setStampText(1, encodeBytes32String("勝利"))).to.not.be.reverted
         })
 
         it("Third party (neither contract owner nor token owner) is reverted", async () => {
@@ -78,8 +74,7 @@ describe("EMJ setStampText validation", () => {
             const instance = await deployFresh()
             await mintTo(instance, alice.address, 1)
 
-            await expect(instance.connect(mallory).setStampText(1, encodeBytes32String("勝利")))
-                .to.be.reverted
+            await expect(instance.connect(mallory).setStampText(1, encodeBytes32String("勝利"))).to.be.reverted
         })
 
         it("Non-existent tokenId is reverted", async () => {
@@ -87,8 +82,7 @@ describe("EMJ setStampText validation", () => {
             await instance.setMintLimit(10)
             await instance.adminMint(2)
 
-            await expect(instance.setStampText(99, encodeBytes32String("勝利")))
-                .to.be.revertedWith("tokenId not exist")
+            await expect(instance.setStampText(99, encodeBytes32String("勝利"))).to.be.revertedWith("tokenId not exist")
         })
 
         it("After token transfer, old owner is reverted and new owner can set", async () => {
@@ -98,11 +92,9 @@ describe("EMJ setStampText validation", () => {
 
             await instance.connect(alice).transferFrom(alice.address, bob.address, 1)
 
-            await expect(instance.connect(alice).setStampText(1, encodeBytes32String("勝利")))
-                .to.be.reverted
+            await expect(instance.connect(alice).setStampText(1, encodeBytes32String("勝利"))).to.be.reverted
 
-            await expect(instance.connect(bob).setStampText(1, encodeBytes32String("勝利")))
-                .to.not.be.reverted
+            await expect(instance.connect(bob).setStampText(1, encodeBytes32String("勝利"))).to.not.be.reverted
         })
     })
 
@@ -114,7 +106,10 @@ describe("EMJ setStampText validation", () => {
         registerAccepts(`Accepts 漢字 1 + ひらがな 1: "勝あ"`, "勝あ")
         registerAccepts(`Accepts 漢字 2 + 改行 + ひらがな 2: "勝利\\nがち"`, "勝利\nがち")
         registerAccepts(`Accepts ひらがな 2 + 改行 + 漢字 2: "いざ\\n勝利"`, "いざ\n勝利")
-        registerAccepts(`Accepts 漢字 2 + 改行 + ひらがな 4 (max independent axes): "勝利\\nあいうえ"`, "勝利\nあいうえ")
+        registerAccepts(
+            `Accepts 漢字 2 + 改行 + ひらがな 4 (max independent axes): "勝利\\nあいうえ"`,
+            "勝利\nあいうえ",
+        )
     })
 
     describe("Invalid charset — reverts", () => {
@@ -147,8 +142,7 @@ describe("EMJ setStampText validation", () => {
             await mintTo(instance, alice.address, 1)
 
             const allNul = `0x${"00".repeat(32)}`
-            await expect(instance.connect(alice).setStampText(1, allNul))
-                .to.be.reverted
+            await expect(instance.connect(alice).setStampText(1, allNul)).to.be.reverted
         })
     })
 
@@ -162,16 +156,13 @@ describe("EMJ setStampText validation", () => {
             // The naive masked decode would treat 0x0A & 0x3F = 0x0A and fabricate U+58CA
             // (a valid CJK ideograph), accepting it as one kanji. The fix requires
             // (text[j+2] & 0xC0) == 0x80 before computing the codepoint.
-            const malformed = bytes32FromRaw([
-                new Uint8Array([0xe5, 0x8b, 0x0a]),
-            ])
+            const malformed = bytes32FromRaw([new Uint8Array([0xe5, 0x8b, 0x0a])])
             const raw = getBytes(malformed)
             expect(raw[0]).to.equal(0xe5)
             expect(raw[1]).to.equal(0x8b)
             expect(raw[2]).to.equal(0x0a)
 
-            await expect(instance.connect(alice).setStampText(1, malformed))
-                .to.be.reverted
+            await expect(instance.connect(alice).setStampText(1, malformed)).to.be.reverted
         })
 
         it("Reverts when the second byte of a 3-byte sequence is not 10xxxxxx", async () => {
@@ -181,11 +172,8 @@ describe("EMJ setStampText validation", () => {
 
             // 0xE3 (3-byte leader) + 0xC1 (NOT a continuation byte — it's a 2-byte leader)
             // + 0x81 (would be a valid continuation if the previous byte were valid).
-            const malformed = bytes32FromRaw([
-                new Uint8Array([0xe3, 0xc1, 0x81]),
-            ])
-            await expect(instance.connect(alice).setStampText(1, malformed))
-                .to.be.reverted
+            const malformed = bytes32FromRaw([new Uint8Array([0xe3, 0xc1, 0x81])])
+            await expect(instance.connect(alice).setStampText(1, malformed)).to.be.reverted
         })
     })
 
@@ -196,18 +184,13 @@ describe("EMJ setStampText validation", () => {
             await mintTo(instance, alice.address, 1)
 
             // 「勝」(0xE5 0x8B 0x9D) + 0x00 + 「利」(0xE5 0x88 0xA9), rest NUL-padded
-            const midNul = bytes32FromRaw([
-                utf8("勝"),
-                new Uint8Array([0x00]),
-                utf8("利"),
-            ])
+            const midNul = bytes32FromRaw([utf8("勝"), new Uint8Array([0x00]), utf8("利")])
             // Sanity check the constructed bytes32 actually has the mid-NUL pattern.
             const raw = getBytes(midNul)
             expect(raw[3]).to.equal(0x00)
             expect(raw[4]).to.not.equal(0x00)
 
-            await expect(instance.connect(alice).setStampText(1, midNul))
-                .to.be.reverted
+            await expect(instance.connect(alice).setStampText(1, midNul)).to.be.reverted
         })
     })
 
@@ -220,8 +203,9 @@ describe("EMJ setStampText validation", () => {
             await instance.connect(alice).setStampText(1, encodeBytes32String("勝利"))
             await instance.connect(alice).setStampText(1, encodeBytes32String("敗北"))
 
-            expect(await instance.tokenURI(1))
-                .to.equal(`https://mojiemoji.jozo.beer/?text=${encodeURIComponent("敗北")}`)
+            expect(await instance.tokenURI(1)).to.equal(
+                `https://mojiemoji.jozo.beer/?text=${encodeURIComponent("敗北")}`,
+            )
         })
 
         it("Same text twice is idempotent (no revert, tokenURI unchanged)", async () => {
@@ -230,11 +214,11 @@ describe("EMJ setStampText validation", () => {
             await mintTo(instance, alice.address, 1)
 
             await instance.connect(alice).setStampText(1, encodeBytes32String("勝利"))
-            await expect(instance.connect(alice).setStampText(1, encodeBytes32String("勝利")))
-                .to.not.be.reverted
+            await expect(instance.connect(alice).setStampText(1, encodeBytes32String("勝利"))).to.not.be.reverted
 
-            expect(await instance.tokenURI(1))
-                .to.equal(`https://mojiemoji.jozo.beer/?text=${encodeURIComponent("勝利")}`)
+            expect(await instance.tokenURI(1)).to.equal(
+                `https://mojiemoji.jozo.beer/?text=${encodeURIComponent("勝利")}`,
+            )
         })
     })
 })

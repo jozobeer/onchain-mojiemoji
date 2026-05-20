@@ -1,15 +1,15 @@
-import { expect } from 'chai'
-import { ethers, upgrades } from 'hardhat'
-import { describe } from 'mocha'
+import { expect } from "chai"
+import { ethers, upgrades } from "hardhat"
+import { describe } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
 
 describe("Withdraw from EMJ", () => {
     it("Withdraw all", async () => {
         const [deployer] = await ethers.getSigners()
 
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(200)
 
@@ -35,7 +35,7 @@ describe("Withdraw from EMJ", () => {
         const [, , , , , , , , mallory] = await ethers.getSigners()
 
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.withdraw() // ok
         await expect(instance.connect(mallory).withdraw()).to.revertedWith("Ownable: caller is not the owner")
@@ -45,19 +45,18 @@ describe("Withdraw from EMJ", () => {
         const [, alice, , , , , , , ivan] = await ethers.getSigners()
 
         const factory = await latestEMJFactory
-        const instance = await upgrades.deployProxy(factory) as LatestEMJ
+        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
 
         await instance.setMintLimit(200)
 
         const mintPrice = await instance.publicMintPrice()
         const paid = mintPrice * 100n
-        await expect(await instance.connect(alice).publicMint(100, { value: paid }))
-            .to.changeEtherBalances([instance, alice], [paid, -paid])
-
+        await expect(await instance.connect(alice).publicMint(100, { value: paid })).to.changeEtherBalances(
+            [instance, alice],
+            [paid, -paid],
+        )
 
         await instance.setWithdrawalReceiver(ivan.address)
-        await expect(await instance.withdraw())
-            .to.changeEtherBalances([instance, ivan], [-paid, paid])
-
+        await expect(await instance.withdraw()).to.changeEtherBalances([instance, ivan], [-paid, paid])
     })
 })

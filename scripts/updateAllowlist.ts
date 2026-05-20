@@ -1,8 +1,8 @@
-import { LatestEMJ, latestEMJFactory } from '../libraries/const'
-import env, { ethers } from 'hardhat'
+import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import env, { ethers } from "hardhat"
 
-import HardhatRuntimeUtility from '../libraries/HardhatRuntimeUtility'
-import createMerkleTree from '../libraries/createMerkleTree'
+import HardhatRuntimeUtility from "../libraries/HardhatRuntimeUtility"
+import createMerkleTree from "../libraries/createMerkleTree"
 
 async function main() {
     const util = new HardhatRuntimeUtility(env)
@@ -15,7 +15,7 @@ async function main() {
     await instance.setAllowlist(tree.getHexRoot(), { nonce: nonce++ })
 }
 
-main().catch(error => {
+main().catch((error) => {
     console.error(error)
     process.exitCode = 1
 })
