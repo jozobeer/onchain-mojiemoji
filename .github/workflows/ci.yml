@@ -21,7 +21,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # --legacy-peer-deps: hardhat-gas-reporter@2 と toolbox@5 の peer conflict
+        # を回避（Issue #5 に明記、Phase 3 で toolbox@7 に上げて解消予定）
+        run: npm ci --legacy-peer-deps
 
       - name: Compile contracts
         run: npx hardhat compile
