@@ -19,38 +19,49 @@ ADR-0001 では Stamp.text を **ユーザー入力** として `mapping(uint256
 
 ### 1. Stamp.text は Dictionary 経由の <img src="https://mojiemoji.jozo.beer/emoji/%E6%B4%BE%E7%94%9F?font=gothic-bold&color=ec4899&animation=bane&speed=normal&background=transparent&outline=darker&outline_width=2" alt="派生" height="24" align="absmiddle">、user input は廃止
 
-`tokenURI(tokenId)` 実行時に：
+`tokenURI(tokenId)` 実行時に（**以下は言語非依存の擬似表記**。Solidity 実装では `bytes32` を `uint256` キャスト＋シフトで上位 / 下位 128 bit に分割するなど）：
 
 ```
-hash = keccak256(abi.encode(tokenId))
-kanji = dict.kanjiAt(hash[0:16] % kanjiSnapshot[tokenId])
-hira  = dict.hiraganaAt(hash[16:32] % hiraganaSnapshot[tokenId])
-text  = abi.encodePacked(kanji, hira)  // 漢字 1 + ひらがな N など、テンプレート規則は実装側
+hash       = keccak256(abi.encode(tokenId))
+kanjiIdx   = upper128(hash) % kanjiSnapshot[tokenId]
+hiraIdx    = lower128(hash) % hiraganaSnapshot[tokenId]
+text       = abi.encodePacked(dict.kanjiAt(kanjiIdx), dict.hiraganaAt(hiraIdx))
+// 漢字 1 + ひらがな N など、テンプレート規則は実装側
 ```
 
 ユーザー入力 API（`setStampText`）は **削除**。
 
 ### 2. Dictionary は別 contract + **UUPS Upgradeable**
 
-```
-EMJ (UUPS) ──external call──> Dictionary (UUPS)
-                                 │
-                                 ├─ kanjiAt(uint256) view returns (bytes)
-                                 ├─ kanjiCount() view returns (uint256)
-                                 ├─ hiraganaAt(uint256) view returns (bytes)
-                                 ├─ hiraganaCount() view returns (uint256)
-                                 └─ addKanji(bytes[]) onlyOwner  // append-only
+```solidity
+interface IDictionary {
+    // 返り値は UTF-8 生 bytes（呼び出し側で abi.encodePacked により直接結合可能）
+    function kanjiAt(uint256 index) external view returns (bytes memory);
+    function kanjiCount() external view returns (uint256);
+    function hiraganaAt(uint256 index) external view returns (bytes memory);
+    function hiraganaCount() external view returns (uint256);
+
+    // append-only。漢字 / ひらがなそれぞれに追加 API を提供
+    function addKanji(bytes[] calldata words) external;     // onlyOwner
+    function addHiragana(bytes[] calldata words) external;  // onlyOwner
+}
 ```
 
-EMJ と Dictionary はそれぞれ <img src="https://mojiemoji.jozo.beer/emoji/%E7%8B%AC%E7%AB%8B?font=maru-bold&color=22c55e&animation=mochimochi&speed=slow&background=transparent&outline=darker&outline_width=2" alt="独立" height="24" align="absmiddle"> な proxy。Dictionary を独立 deploy する <img src="https://mojiemoji.jozo.beer/emoji/%E5%88%A9%E7%82%B9?font=gothic-bold&color=60a5fa&animation=kirari&speed=normal&background=transparent&outline=darker&outline_width=2" alt="利点" height="24" align="absmiddle">：他プロジェクトからも借用可能な public good になる（mojiemoji 互換の日本語語彙 oracle）。
+EMJ と Dictionary はそれぞれ <img src="https://mojiemoji.jozo.beer/emoji/%E7%8B%AC%E7%AB%8B?font=maru-bold&color=22c55e&animation=mochimochi&speed=slow&background=transparent&outline=darker&outline_width=2" alt="独立" height="24" align="absmiddle"> な UUPS proxy として deploy し、external call で連携：
+
+```
+EMJ (UUPS) ──external call──> Dictionary (UUPS)
+```
+
+Dictionary を独立 deploy する <img src="https://mojiemoji.jozo.beer/emoji/%E5%88%A9%E7%82%B9?font=gothic-bold&color=60a5fa&animation=kirari&speed=normal&background=transparent&outline=darker&outline_width=2" alt="利点" height="24" align="absmiddle">：他プロジェクトからも借用可能な public good になる（mojiemoji 互換の日本語語彙 oracle）。
 
 ### 3. Dictionary は **append-only**（書き換え禁止）
 
-- `addKanji(bytes[] calldata words) onlyOwner` のみ提供
-- `setKanji(index, word)` / `removeKanji(index)` は **提供しない**
+- `addKanji(bytes[] calldata)` / `addHiragana(bytes[] calldata)` の **追加 API のみ** 提供
+- `setKanji(index, word)` / `removeKanji(index)` / `setHiragana` / `removeHiragana` は **提供しない**
 - modifier / require レベルで <img src="https://mojiemoji.jozo.beer/emoji/%E5%BC%B7%E5%88%B6?font=mincho&color=ef4444&animation=bure&speed=normal&background=transparent&outline=darker&outline_width=2" alt="強制" height="24" align="absmiddle">
 
-→ 既存 index は **永久に同じ文字を指す**。新規語彙は末尾追加だけ。
+→ 既存 index は **永久に同じ文字を指す**。新規語彙は末尾追加だけ。漢字 / ひらがな双方とも append 可（テンプレ規則で漢字 0 文字パターンを許容する場合があるため、ひらがな側も拡張余地を残す）。
 
 ### 4. 派生ロジックは EMJ 側に <img src="https://mojiemoji.jozo.beer/emoji/%E5%9B%BA%E5%AE%9A?font=mincho&color=8b5cf6&animation=nami&speed=slow&background=transparent&outline=darker&outline_width=2" alt="固定" height="24" align="absmiddle">、Dictionary はデータ層のみ
 
@@ -58,26 +69,31 @@ Dictionary は配列 lookup だけを提供し、派生アルゴリズム（hash
 
 理由：派生ロジックを Upgradeable Dictionary 側に持たせると **過去 token の派生結果が後から変わる** リスク。Dream の「URL = 画像の永続化」と <img src="https://mojiemoji.jozo.beer/emoji/%E7%9F%9B%E7%9B%BE?font=dela&color=dc2626&animation=psycho&speed=normal&background=transparent&outline=darker&outline_width=2" alt="矛盾" height="24" align="absmiddle">。データだけ append-only なら安全。
 
-### 5. tokenURI <img src="https://mojiemoji.jozo.beer/emoji/%E6%B0%B8%E7%B6%9A%E5%8C%96?font=maru-bold&color=34d399&animation=mochimochi&speed=slow&background=transparent&outline=darker&outline_width=2" alt="永続化" height="24" align="absmiddle"> のため mint 時に Dictionary count を snapshot
+### 5. tokenURI <img src="https://mojiemoji.jozo.beer/emoji/%E6%B0%B8%E7%B6%9A%E5%8C%96?font=maru-bold&color=34d399&animation=mochimochi&speed=slow&background=transparent&outline=darker&outline_width=2" alt="永続化" height="24" align="absmiddle"> のため mint 時に Dictionary count を **batch 起点 tokenId per** で snapshot
+
+ERC721Psi の batch mint と <img src="https://mojiemoji.jozo.beer/emoji/%E6%95%B4%E5%90%88?font=gothic-bold&color=06b6d4&animation=shuchusen&speed=normal&background=transparent&outline=darker&outline_width=2" alt="整合" height="24" align="absmiddle"> させるため、snapshot は **batch 起点 tokenId だけに書き込む**（batch 内 token は起点を lookup して同じ snapshot を参照）：
 
 ```solidity
-mapping(uint256 => uint256) private _kanjiSnapshot;     // mint 時の dict.kanjiCount()
-mapping(uint256 => uint256) private _hiraganaSnapshot;  // mint 時の dict.hiraganaCount()
+// batch start tokenId のみに書く。batch 内の他 token は起点を逆引きして参照
+mapping(uint256 => uint256) private _kanjiSnapshotAtBatchStart;
+mapping(uint256 => uint256) private _hiraganaSnapshotAtBatchStart;
 ```
 
-派生時は `_kanjiSnapshot[tokenId]` を mod の右辺に使う：
+派生時：
 
 ```solidity
-index = uint256(hashSlice) % _kanjiSnapshot[tokenId]
+uint256 start = _batchStartOf(tokenId);  // ERC721Psi が提供する起点 lookup
+uint256 kanjiRange = _kanjiSnapshotAtBatchStart[start];
+uint256 idx = uint256(hashSlice) % kanjiRange;
 ```
 
 これにより：
 
 - **既存 token の派生結果は <img src="https://mojiemoji.jozo.beer/emoji/%E6%B0%B8%E9%81%A0?font=dela&color=22c55e&animation=kira&speed=normal&background=transparent&outline=darker&outline_width=2" alt="永遠" height="24" align="absmiddle"> 不変**（snapshot 時の range だけ使う）
 - **新規 mint だけが拡張された語彙を享受**
-- Dictionary upgrade に対する EMJ 側の <img src="https://mojiemoji.jozo.beer/emoji/%E4%BD%99%E8%A3%95?font=maru-bold&color=22c55e&animation=kirari&speed=normal&background=transparent&outline=darker&outline_width=2" alt="余裕" height="24" align="absmiddle">
+- **batch mint のガス効率を <img src="https://mojiemoji.jozo.beer/emoji/%E7%B6%AD%E6%8C%81?font=gothic-bold&color=22c55e&animation=kirari&speed=normal&background=transparent&outline=darker&outline_width=2" alt="維持" height="24" align="absmiddle">**：batch サイズ N に対して snapshot SSTORE は 2 回 (kanji / hiragana) で済む（per-token なら 2N 回）
 
-ERC721Psi の batch mint との <img src="https://mojiemoji.jozo.beer/emoji/%E6%95%B4%E5%90%88?font=gothic-bold&color=06b6d4&animation=shuchusen&speed=normal&background=transparent&outline=darker&outline_width=2" alt="整合" height="24" align="absmiddle">：batch 内の token は同じ snapshot で OK（batch 起点 tokenId に紐付け、末尾 token まで lookup でたどる）。実装方式は別 issue で詰める。
+Pros の「mint コスト劇減」はこの batch 単位 snapshot を前提とする。tokenId per で持つと batch mint のスケール感が失われるため、**batch 単位を ADR 確定事項として明示**。
 
 ### 6. ADR-0001 storage `_stampText` は **廃止**
 
