@@ -94,7 +94,7 @@ describe("Dictionary freeze (ADR-0003)", () => {
         })
 
         it("Still allows ownership transfer (Ownable2Step) after freeze", async () => {
-            const [owner, alice] = await ethers.getSigners()
+            const [, alice] = await ethers.getSigners()
             const dict = await deployDictionary([word("焼く")])
             await dict.freeze()
             await dict.transferOwnership(alice.address)
