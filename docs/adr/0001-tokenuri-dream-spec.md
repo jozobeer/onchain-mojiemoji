@@ -1,7 +1,7 @@
 # ADR-0001: `tokenURI` の Dream 仕様と Stamp.text のオンチェーン格納
 
 - 採択日: 2026-05-19
-- ステータス: Accepted
+- ステータス: **Superseded by [ADR-0002](./0002-upgradeable-dictionary.md)**（2026-05-21）─ Stamp.text 入力経路 / `bytes32` inline storage / 文字種制約はすべて廃止。本文は歴史的記録として保持。
 - 関係者: jozobeer
 
 ## Context（背景）
