@@ -49,6 +49,11 @@ export const sanitize = (raw: string[], options: Partial<SanitizeOptions> = {}):
             rejected.push({ word: trimmed, reason: "duplicate" })
             continue
         }
+        // Record the post-trim form before further validation so that a second
+        // occurrence of a word — even if the first was rejected for length /
+        // char-class — is still classified as `duplicate` rather than getting
+        // re-validated and re-rejected for the same downstream reason.
+        seen.add(trimmed)
         if (toUtf8Bytes(trimmed).length > opts.maxBytes) {
             rejected.push({ word: trimmed, reason: "too-long" })
             continue
@@ -57,7 +62,6 @@ export const sanitize = (raw: string[], options: Partial<SanitizeOptions> = {}):
             rejected.push({ word: trimmed, reason: "non-japanese" })
             continue
         }
-        seen.add(trimmed)
         sanitized.push(trimmed)
     }
 
@@ -94,19 +98,30 @@ const parseArgs = (args: string[]): CliArgs => {
     return {
         inPath,
         outPath,
-        maxBytes: maxBytesRaw === undefined ? DEFAULT_OPTIONS.maxBytes : Number.parseInt(maxBytesRaw, 10),
+        maxBytes: maxBytesRaw === undefined ? DEFAULT_OPTIONS.maxBytes : parsePositiveInt("--max-bytes", maxBytesRaw),
         allowNonJapanese: args.includes("--allow-non-japanese"),
     }
 }
 
+const parsePositiveInt = (flag: string, value: string): number => {
+    const parsed = Number.parseInt(value, 10)
+    if (!Number.isFinite(parsed) || parsed <= 0 || String(parsed) !== value.trim()) {
+        throw new Error(`${flag}: must be a positive integer, got ${JSON.stringify(value)}`)
+    }
+    return parsed
+}
+
 const readInput = (path: string): string[] => {
     const body = readFileSync(path, "utf8")
-    if (path.endsWith(".json")) {
-        const parsed = JSON.parse(body)
-        if (!Array.isArray(parsed)) throw new Error(`${path}: JSON root must be an array of strings`)
-        return parsed
-    }
-    return body.split(/\r?\n/)
+    if (!path.endsWith(".json")) return body.split(/\r?\n/)
+    const parsed = JSON.parse(body)
+    if (!Array.isArray(parsed)) throw new Error(`${path}: JSON root must be an array of strings`)
+    parsed.forEach((el, i) => {
+        if (typeof el !== "string") {
+            throw new Error(`${path}: element at index ${i} is not a string (got ${typeof el})`)
+        }
+    })
+    return parsed
 }
 
 export const runCli = (args: string[]): void => {

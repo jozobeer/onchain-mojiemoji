@@ -62,6 +62,21 @@ describe("Dictionary sanitizer", () => {
             expect(r.rejected[0].word).to.equal("焼く")
             expect(r.rejected[0].reason).to.equal("duplicate")
         })
+
+        it("Tags second occurrence as `duplicate` even when first was rejected for length", () => {
+            // Both copies of an over-long word: the second still reports
+            // `duplicate`, not a fresh `too-long` rejection.
+            const longWord = "あ".repeat(22)
+            const r = sanitize([longWord, longWord], { maxBytes: 10 })
+            expect(r.sanitized).to.deep.equal([])
+            expect(r.rejected.map((x) => x.reason)).to.deep.equal(["too-long", "duplicate"])
+        })
+
+        it("Tags second occurrence as `duplicate` even when first was rejected for char-class", () => {
+            const r = sanitize(["勝つZ", "勝つZ"])
+            expect(r.sanitized).to.deep.equal([])
+            expect(r.rejected.map((x) => x.reason)).to.deep.equal(["non-japanese", "duplicate"])
+        })
     })
 
     describe("Max bytes constraint", () => {
