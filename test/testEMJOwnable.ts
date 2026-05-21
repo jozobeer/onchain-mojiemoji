@@ -1,13 +1,12 @@
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 import { describe, it } from "mocha"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 
 import { expect } from "chai"
 
 describe("ALC Ownable", () => {
     it("Check owner transferable", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, , , , , mallory] = await ethers.getSigners()
 

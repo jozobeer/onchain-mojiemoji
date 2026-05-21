@@ -1,9 +1,9 @@
 import { expect } from "chai"
 import { keccak256 } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 import createMerkleTree from "../libraries/createMerkleTree"
 
 describe("EMJ allowlist", () => {
@@ -13,8 +13,7 @@ describe("EMJ allowlist", () => {
         const tree = createMerkleTree(allowlisted)
         const root = tree.getHexRoot()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setAllowlist(root)
 
@@ -35,8 +34,7 @@ describe("EMJ allowlist", () => {
         const tree = createMerkleTree(allowlisted)
         const root = tree.getHexRoot()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setAllowlist(root)
 
@@ -61,8 +59,7 @@ describe("EMJ allowlist", () => {
         const tree = createMerkleTree(allowlisted)
         const root = tree.getHexRoot()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setAllowlist(root)
 

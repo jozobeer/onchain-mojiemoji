@@ -1,14 +1,13 @@
 import { expect } from "chai"
 import { ZeroAddress } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 
 describe("EMJ Public Minting", () => {
     it("Mint limit is set, then publicMintLastTokenId should be set", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(300)
 
@@ -18,8 +17,7 @@ describe("EMJ Public Minting", () => {
 
     it("Can public mint", async () => {
         const [, john] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(300)
 
@@ -43,8 +41,7 @@ describe("EMJ Public Minting", () => {
 
     it("Can't public-mint over the limit", async () => {
         const [, john] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(300)
 
@@ -62,8 +59,7 @@ describe("EMJ Public Minting", () => {
 
     it("Cannot mint if sent ETH is not enough", async () => {
         const [, john] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(300)
 
@@ -83,8 +79,7 @@ describe("EMJ Public Minting", () => {
 
     it("Public minting emits events", async () => {
         const [, john] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(300)
 

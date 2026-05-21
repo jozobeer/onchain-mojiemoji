@@ -37,6 +37,7 @@ import {
     RevokableDefaultOperatorFiltererUpgradeable,
     RevokableOperatorFiltererUpgradeable
 } from "operator-filter-registry/src/upgradeable/RevokableDefaultOperatorFiltererUpgradeable.sol";
+import {IDictionary} from "./interfaces/IDictionary.sol";
 import {IPublicMintable} from "./interfaces/IPublicMintable.sol";
 import {IAllowlistMintable} from "./interfaces/IAllowlistMintable.sol";
 
@@ -658,34 +659,6 @@ contract EMJ is
     }
 
     /**
-     * @dev convert bytes32 to hex string.
-     */
-    function _toHexString(bytes32 data) private pure returns (string memory) {
-        uint256 k = uint256(data);
-        bytes16 symbols = "0123456789abcdef";
-        uint256 length = data.length * 2;
-        bytes memory result = new bytes(length);
-        for (uint256 i = 1; i <= length; i++ + (k >>= 4)) result[length - i] = symbols[k & 0xf];
-        return string(result);
-    }
-
-    /**
-     * @dev convert bytes32 to bytes, trimming trailing NUL padding.
-     * Left-aligned UTF-8 in bytes32 means the first 0x00 marks the logical end.
-     */
-    function _bytes32ToBytes(bytes32 data) private pure returns (bytes memory) {
-        uint256 len = 32;
-        while (len > 0 && data[len - 1] == 0) {
-            len--;
-        }
-        bytes memory result = new bytes(len);
-        for (uint256 i = 0; i < len; i++) {
-            result[i] = data[i];
-        }
-        return result;
-    }
-
-    /**
      * @dev RFC 3986 percent-encoding. Unreserved characters (A-Z a-z 0-9 - . _ ~)
      * pass through; every other byte expands to %XX with uppercase hex.
      * tokenURI is a view function so the gas cost of this loop is paid by no one
@@ -721,126 +694,67 @@ contract EMJ is
     }
 
     //////////////////////////////////
-    //// Token URI (Dream — mojiemoji URL dynamic composition)
+    //// Token URI (Dream — Dictionary-derived mojiemoji URL)
     ////
     //// Storage layout note: this contract is upgradeable (UUPS proxy). New state
     //// variables MUST be appended at the end of the existing layout to preserve
-    //// slot assignments of all previously declared state. `_stampText` is the most
-    //// recent addition; keep any future additions below this line.
+    //// slot assignments of all previously declared state. `_stampText` was the
+    //// original ADR-0001 entry-point storage; it is retained as-is for layout
+    //// compatibility but is no longer read or written. All entries below it are
+    //// the ADR-0002 Dictionary-derivation additions. Keep any future fields
+    //// appended at the end of this section.
     //////////////////////////////////
 
-    /// @dev Stamp.text per tokenId. UTF-8 bytes, left-aligned in bytes32 (NUL-padded).
+    /// @dev DEPRECATED (ADR-0001). Retained for storage layout compatibility only.
+    ///      Never read or written by the current implementation.
     mapping(uint256 => bytes32) private _stampText;
 
+    /// @dev External word source. Settable post-deploy via `setDictionary`.
+    IDictionary public dictionary;
+
+    /// @dev Snapshot of `dictionary.wordCount()` taken at the batch-start tokenId
+    ///      of each mint batch. Locks the derivation range so that future
+    ///      `addWords` calls do not change existing tokens' URLs.
+    mapping(uint256 => uint256) private _wordSnapshotAtBatchStart;
+
     /**
-     * @dev access control for setStampText: caller must be either the token owner
-     * (current holder) or the contract owner. Mirrors the burn() pattern.
+     * @dev set the Dictionary contract address. Owner-only; can be re-pointed
+     * to a new Dictionary at any time. The owner is responsible for ensuring
+     * the new Dictionary's indices stay compatible with already-snapshotted
+     * ranges of existing tokens (aliasing — see ADR-0002).
      */
-    modifier onlyTokenOwnerOrContractOwner(uint256 tokenId) {
-        require(msg.sender == ownerOf(tokenId) || msg.sender == owner(), "not token owner nor contract owner");
-        _;
+    function setDictionary(address dictionaryAddress) external onlyOwner {
+        dictionary = IDictionary(dictionaryAddress);
     }
 
     /**
-     * @dev set the Stamp.text for the given tokenId. Validates per ADR-0001:
-     * left-aligned UTF-8 in bytes32, at most 2 kanji + 4 hiragana + 1 newline,
-     * newline (if present) must sit between non-newline characters.
+     * @dev ERC721Psi hook. We only act on mint (`from == address(0)`): write
+     * the wordCount snapshot once per batch, at the batch-start tokenId.
+     * `addressFrom`, `addressTo`, `quantity` are unused.
      */
-    function setStampText(
-        uint256 tokenId,
-        bytes32 text
-    ) external checkTokenIdExists(tokenId) onlyTokenOwnerOrContractOwner(tokenId) {
-        _validateStampText(text);
-        _stampText[tokenId] = text;
+    function _afterTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal override {
+        if (from == address(0)) {
+            require(address(dictionary) != address(0), "dictionary not set");
+            uint256 range = dictionary.wordCount();
+            require(range > 0, "dictionary is empty");
+            _wordSnapshotAtBatchStart[startTokenId] = range;
+        }
+        super._afterTokenTransfers(from, to, startTokenId, quantity);
     }
 
     /**
-     * @dev validate the stamp text against the ADR-0001 grammar:
-     *   - Non-empty, left-aligned UTF-8 in bytes32 (no mid-NUL)
-     *   - Each codepoint is kanji (U+4E00–U+9FFF), hiragana (U+3040–U+309F), or '\n'
-     *   - Counts: kanji ≤ 2, hiragana ≤ 4, newline ≤ 1
-     *   - Newline must not appear at position 0 or len-1 (i.e., must have content on both sides)
-     * Reverts with a descriptive reason string on any violation.
-     */
-    function _validateStampText(bytes32 text) private pure {
-        // Find logical length: position of first NUL byte (left-aligned text).
-        uint256 len = 32;
-        for (uint256 i = 0; i < 32; i++) {
-            if (text[i] == 0) {
-                len = i;
-                break;
-            }
-        }
-        require(len > 0, "empty text");
-
-        // Strict left-alignment: everything after `len` must remain NUL.
-        for (uint256 i = len; i < 32; i++) {
-            require(text[i] == 0, "mid-NUL not allowed");
-        }
-
-        // Reject newline at start or end. The walk below caps newline count at 1,
-        // so these two guards together force any newline into a middle position
-        // with content on both sides.
-        require(uint8(text[0]) != 0x0A, "leading newline");
-        require(uint8(text[len - 1]) != 0x0A, "trailing newline");
-
-        // Walk UTF-8 codepoints, classify each, enforce per-category caps.
-        uint256 kanji = 0;
-        uint256 hiragana = 0;
-        uint256 newlines = 0;
-        uint256 j = 0;
-        while (j < len) {
-            uint8 b = uint8(text[j]);
-            if (b == 0x0A) {
-                newlines += 1;
-                require(newlines <= 1, "too many newlines");
-                j += 1;
-            } else if (b < 0x80) {
-                revert("invalid charset");
-            } else if (b < 0xE0) {
-                // 2-byte UTF-8 leading byte — not in the allowed alphabet.
-                revert("invalid charset");
-            } else if (b < 0xF0) {
-                // 3-byte UTF-8 codepoint (kanji / hiragana / others in the BMP).
-                require(j + 2 < len, "truncated UTF-8");
-                uint8 b1 = uint8(text[j + 1]);
-                uint8 b2 = uint8(text[j + 2]);
-                // Continuation bytes must match 10xxxxxx — otherwise the masked
-                // decode below would silently fabricate a bogus codepoint.
-                require((b1 & 0xC0) == 0x80, "invalid UTF-8 continuation");
-                require((b2 & 0xC0) == 0x80, "invalid UTF-8 continuation");
-                uint256 cp = (uint256(b & 0x0F) << 12) | (uint256(b1 & 0x3F) << 6) | uint256(b2 & 0x3F);
-                if (cp >= 0x4E00 && cp <= 0x9FFF) {
-                    kanji += 1;
-                    require(kanji <= 2, "too many kanji");
-                } else if (cp >= 0x3040 && cp <= 0x309F) {
-                    hiragana += 1;
-                    require(hiragana <= 4, "too many hiragana");
-                } else {
-                    revert("invalid charset");
-                }
-                j += 3;
-            } else {
-                // 4-byte UTF-8 (emoji etc.) — not allowed.
-                revert("invalid charset");
-            }
-        }
-    }
-
-    /**
-     * @dev token URI — Dream spec: dynamically compose a mojiemoji.jozo.beer URL from
-     * the on-chain text Param. The URL itself IS the image (stateless service), so no
-     * off-chain JSON / IPFS / Arweave hosting is involved.
+     * @dev token URI — Dream spec: dynamically compose a mojiemoji.jozo.beer URL by
+     * deriving a word from the Dictionary contract via a per-token deterministic
+     * hash. The URL itself IS the image (stateless service), so no off-chain JSON
+     * / IPFS / Arweave hosting is involved.
      */
     function tokenURI(
         uint256 tokenId
     ) public view virtual override checkTokenIdExists(tokenId) returns (string memory) {
-        return
-            string(
-                abi.encodePacked(
-                    "https://mojiemoji.jozo.beer/?text=",
-                    _percentEncode(_bytes32ToBytes(_stampText[tokenId]))
-                )
-            );
+        uint256 batchStart = _getBatchHead(tokenId);
+        uint256 range = _wordSnapshotAtBatchStart[batchStart];
+        uint256 idx = uint256(keccak256(abi.encode(tokenId))) % range;
+        bytes memory text = dictionary.wordAt(idx);
+        return string(abi.encodePacked("https://mojiemoji.jozo.beer/?text=", _percentEncode(text)));
     }
 }

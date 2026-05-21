@@ -1,15 +1,14 @@
 import { expect } from "chai"
 import { keccak256, parseEther } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 import createMerkleTree from "../libraries/createMerkleTree"
 
 describe("EMJ Minting Period", () => {
     it("Can public mint if minting period is not set", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -19,8 +18,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can't set public minting period if start date is later than end date", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const now = (await ethers.provider.getBlock("latest"))?.timestamp || 0
         const yesterday = now - 86400
@@ -32,8 +30,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can't public mint if minting period is not started", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -50,8 +47,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can't public mint if minting period is ended", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -68,8 +64,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can public mint if it's in minting period", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -84,8 +79,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can allowlist mint if minting period is not set", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice, bob] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -102,8 +96,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can't set allowlist minting period if start date is later than end date", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const now = (await ethers.provider.getBlock("latest"))?.timestamp || 0
         const yesterday = now - 86400
@@ -115,8 +108,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can't allowlist mint if minting period is not started", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice, bob] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -140,8 +132,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can't allowlist mint if minting period is ended", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice, bob] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
@@ -165,8 +156,7 @@ describe("EMJ Minting Period", () => {
     })
 
     it("Can allowlist mint if it's in minting period", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
         const [, alice, bob] = await ethers.getSigners()
 
         await instance.setMintLimit(10)
