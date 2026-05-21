@@ -1,15 +1,14 @@
 import { expect } from "chai"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 
 describe("Withdraw from EMJ", () => {
     it("Withdraw all", async () => {
         const [deployer] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(200)
 
@@ -34,8 +33,7 @@ describe("Withdraw from EMJ", () => {
     it("Nobody can withdraw other than owner", async () => {
         const [, , , , , , , , mallory] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.withdraw() // ok
         await expect(instance.connect(mallory).withdraw()).to.revertedWith("Ownable: caller is not the owner")
@@ -44,8 +42,7 @@ describe("Withdraw from EMJ", () => {
     it("Withdrawal receiver receives all", async () => {
         const [, alice, , , , , , , ivan] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(200)
 

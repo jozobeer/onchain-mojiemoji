@@ -1,15 +1,14 @@
 import { expect } from "chai"
 import { keccak256, parseEther, ZeroAddress } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 import createMerkleTree from "../libraries/createMerkleTree"
 
 describe("Mint ALC as allowlisted member", () => {
     it("Allowlisted member can mint", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 
@@ -39,8 +38,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Not allowlisted member's minting is not allowed", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan, mike] = await ethers.getSigners()
 
@@ -62,8 +60,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Allowlisted member can mint but not over the limit", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 
@@ -103,8 +100,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Allowlisted member exceeding the limit of allowlist mint can mint after the sale id is changed", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 
@@ -145,8 +141,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Allowlisted member can mint in allowlist mint limit but not over the limit of entire contract", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 
@@ -173,8 +168,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Cannot mint if sent ETH is not enough", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 
@@ -203,8 +197,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Cannot mint if too much ETH is sent", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 
@@ -233,8 +226,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Only contract owner can increment allowlist sale id", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john] = await ethers.getSigners()
 
@@ -244,8 +236,7 @@ describe("Mint ALC as allowlisted member", () => {
     })
 
     it("Allowlist minting emits events", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         const [, john, jonny, jonathan] = await ethers.getSigners()
 

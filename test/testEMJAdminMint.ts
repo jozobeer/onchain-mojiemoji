@@ -1,15 +1,14 @@
 import { expect } from "chai"
 import { ZeroAddress } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 
 describe("Mint EMJ as admin", () => {
     it("Owner can mint in the limit", async () => {
         const [deployer] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(100)
 
@@ -22,8 +21,7 @@ describe("Mint EMJ as admin", () => {
 
     it("Owner can mint to other", async () => {
         const [, , bob] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(200)
 
@@ -36,8 +34,7 @@ describe("Mint EMJ as admin", () => {
 
     it("Other than owner can't adminMint", async () => {
         const [, alice, bob] = await ethers.getSigners()
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(100)
 
@@ -50,8 +47,7 @@ describe("Mint EMJ as admin", () => {
     it("Even admin can't mint over the limit", async () => {
         const [deployer, alice] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(20)
 
@@ -73,8 +69,7 @@ describe("Mint EMJ as admin", () => {
     it("Can mint again after the limit is increased", async () => {
         const [deployer] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(20)
 
@@ -95,8 +90,7 @@ describe("Mint EMJ as admin", () => {
     it("Can't set the limit to less than the last minted tokenId", async () => {
         const [deployer] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(20)
 

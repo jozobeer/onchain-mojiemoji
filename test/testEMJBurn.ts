@@ -1,16 +1,15 @@
 import { expect } from "chai"
 import { ZeroAddress } from "ethers"
-import { ethers, upgrades } from "hardhat"
+import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
-import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { deployFreshEMJ } from "../libraries/const"
 
 describe("Burn EMJ", () => {
     it("Owner can burn then totalSupply decreased", async () => {
         const [deployer] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(10)
         await expect(instance.adminMint(5)).to.emit(instance, "Transfer").withArgs(ZeroAddress, deployer.address, 4)
@@ -31,8 +30,7 @@ describe("Burn EMJ", () => {
     })
 
     it("Cannot burn same token twice", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(10)
         await instance.adminMint(5)
@@ -44,8 +42,7 @@ describe("Burn EMJ", () => {
     it("Burning doesn't release the minting spaces", async () => {
         const [deployer] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(5)
 
@@ -67,8 +64,7 @@ describe("Burn EMJ", () => {
     })
 
     it("Reading tokenURI should be reverted for tokenId which is already burned", async () => {
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(10)
         await instance.adminMint(10)
@@ -80,8 +76,7 @@ describe("Burn EMJ", () => {
     it("Only owner and token owner can burn the token", async () => {
         const [, alice, , , , , mallory] = await ethers.getSigners()
 
-        const factory = await latestEMJFactory
-        const instance = (await upgrades.deployProxy(factory)) as LatestEMJ
+        const instance = await deployFreshEMJ()
 
         await instance.setMintLimit(3)
         await expect(instance.adminMintTo(alice.address, 3))
