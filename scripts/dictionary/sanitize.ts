@@ -28,10 +28,17 @@ const DEFAULT_OPTIONS: SanitizeOptions = {
     allowNonJapanese: false,
 }
 
-// ひらがな (U+3040-U+309F) / カタカナ (U+30A0-U+30FF) / 長音符 ー (U+30FC) /
-// CJK 基本漢字 (U+4E00-U+9FFF)。Dream の対象範囲を抑えつつ、絵文字・記号・
-// ASCII は別経路で扱う設計。
-const JAPANESE_ONLY = /^[぀-ゟ゠-ヿー一-鿿]+$/
+// 文字種は「日本語の letter のみ」に限定する。カタカナ block の中で `・` (U+30FB)
+// `゠` (U+30A0) のような punctuation、ひらがな block の `゛` `゜` (U+3099/309A)
+// のような濁点記号は除外する — full block range で許容すると symbol-only token
+// が non-japanese reject を擦り抜けるため (Codex review #25 P2)。
+//   - U+3041-U+3096: ひらがな本体 (ぁ-ゖ)
+//   - U+309D-U+309E: 繰り返し記号 ゝ ゞ
+//   - U+30A1-U+30FA: カタカナ本体 (ァ-ヺ)
+//   - U+30FC:         長音符 ー
+//   - U+30FD-U+30FE: 繰り返し記号 ヽ ヾ
+//   - U+4E00-U+9FFF: CJK 基本漢字
+const JAPANESE_ONLY = /^[ぁ-ゖゝゞァ-ヺー-ヾ一-鿿]+$/
 
 export const sanitize = (raw: string[], options: Partial<SanitizeOptions> = {}): SanitizeResult => {
     const opts: SanitizeOptions = { ...DEFAULT_OPTIONS, ...options }

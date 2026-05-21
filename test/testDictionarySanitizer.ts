@@ -121,6 +121,26 @@ describe("Dictionary sanitizer", () => {
             expect(r.rejected[0].reason).to.equal("non-japanese")
         })
 
+        it("Rejects words containing katakana middle dot ・ (U+30FB)", () => {
+            // The middle dot lives inside the Katakana block but is punctuation,
+            // not a letter — must not be treated as Japanese.
+            const r = sanitize(["勝・利"])
+            expect(r.sanitized).to.deep.equal([])
+            expect(r.rejected[0].reason).to.equal("non-japanese")
+        })
+
+        it("Rejects words containing katakana double hyphen ゠ (U+30A0)", () => {
+            const r = sanitize(["ア゠イ"])
+            expect(r.sanitized).to.deep.equal([])
+            expect(r.rejected[0].reason).to.equal("non-japanese")
+        })
+
+        it("Rejects words containing combining marks ゛ ゜ (U+3099/309A)", () => {
+            const r = sanitize(["あ゙"])
+            expect(r.sanitized).to.deep.equal([])
+            expect(r.rejected[0].reason).to.equal("non-japanese")
+        })
+
         it("allowNonJapanese=true skips the character class check", () => {
             const r = sanitize(["焼くZ"], { allowNonJapanese: true })
             expect(r.sanitized).to.deep.equal(["焼くZ"])
