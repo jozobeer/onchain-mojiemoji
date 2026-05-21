@@ -13,8 +13,24 @@ const asHex = (bytes: BytesLike): string => hexlify(bytes)
 const BASE_URL = "https://mojiemoji.jozo.beer/?text="
 
 // RFC 3986 percent-encode — mirrors EMJ.sol's _percentEncode (uppercase hex,
-// unreserved = [A-Za-z0-9\-._~] pass through). encodeURIComponent matches.
-const expectedUrlForWord = (w: string): string => `${BASE_URL}${encodeURIComponent(w)}`
+// unreserved = [A-Za-z0-9\-._~] pass through). JS encodeURIComponent diverges
+// on `!'()*` (it treats them as unreserved), so we re-implement the rule here
+// to keep the oracle byte-exact with the on-chain encoder.
+const percentEncode = (text: string): string => {
+    const bytes = toUtf8Bytes(text)
+    const isUnreserved = (b: number): boolean =>
+        (b >= 0x30 && b <= 0x39) ||
+        (b >= 0x41 && b <= 0x5a) ||
+        (b >= 0x61 && b <= 0x7a) ||
+        b === 0x2d ||
+        b === 0x2e ||
+        b === 0x5f ||
+        b === 0x7e
+    return Array.from(bytes)
+        .map((b) => (isUnreserved(b) ? String.fromCharCode(b) : `%${b.toString(16).toUpperCase().padStart(2, "0")}`))
+        .join("")
+}
+const expectedUrlForWord = (w: string): string => `${BASE_URL}${percentEncode(w)}`
 
 const deployDictionary = async (initialWords: Uint8Array[]): Promise<Contract> => {
     const factory = await ethers.getContractFactory("Dictionary")
@@ -269,6 +285,19 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             const { emj } = await deployEMJWithDict([w])
             await emj.adminMint(1)
             expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(w))
+        })
+
+        // _percentEncode treats !'()* as reserved (RFC 3986 strict), unlike JS
+        // encodeURIComponent which leaves them bare. Pin the encoder behavior
+        // so future divergence between the contract and the test oracle is
+        // caught here.
+        it("Percent-encodes RFC-3986 reserved sub-delims !'()*", async () => {
+            const w = "a!b'c(d)e*f"
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            const expected = `${BASE_URL}a%21b%27c%28d%29e%2Af`
+            expect(expectedUrlForWord(w)).to.equal(expected)
+            expect(await emj.tokenURI(1)).to.equal(expected)
         })
     })
 
