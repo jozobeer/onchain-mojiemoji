@@ -73,7 +73,7 @@ contract Dictionary is Initializable, UUPSUpgradeable, Ownable2StepUpgradeable {
         emit WordsAdded(startIndex, words.length);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+    function _authorizeUpgrade(address) internal override onlyOwner {
         require(!frozen, "upgrades frozen");
     }
 }
