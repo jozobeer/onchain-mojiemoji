@@ -193,9 +193,9 @@ describe("Dictionary", () => {
             const [, alice] = await ethers.getSigners()
             const dict = await deployDictionary([word("焼く")])
             const factoryAsAlice = await ethers.getContractFactory("Dictionary", alice)
-            await expect(
-                upgrades.upgradeProxy(await dict.getAddress(), factoryAsAlice),
-            ).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(upgrades.upgradeProxy(await dict.getAddress(), factoryAsAlice)).to.be.revertedWith(
+                "Ownable: caller is not the owner",
+            )
         })
     })
 })
