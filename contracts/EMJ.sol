@@ -33,6 +33,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/interfaces/IERC2981Upgradeable.sol";
 import {MerkleProofUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import {StringsUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
+import {Base64Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/Base64Upgradeable.sol";
 import {
     RevokableDefaultOperatorFiltererUpgradeable,
     RevokableOperatorFiltererUpgradeable
@@ -190,11 +191,14 @@ contract EMJ is
     ///////////////////////////////////////////////////////////////////
 
     //////////////////////////////////
-    //// Base URI
+    //// Base URI (deprecated — kept for storage layout compatibility, ADR-0004)
     //////////////////////////////////
 
     /**
-     * @dev base URI.
+     * @dev DEPRECATED (ADR-0004 D1). No longer read by `tokenURI` / `contractURI`,
+     * but the storage slot, setter, and `_baseURI()` override are retained for
+     * UUPS storage layout compatibility and ERC721 metadata extension tooling
+     * compatibility. Writing this slot has no effect on the metadata output.
      */
     string public baseURI;
 
@@ -222,14 +226,46 @@ contract EMJ is
     }
 
     //////////////////////////////////
-    //// Contract URI
+    //// Contract URI (ADR-0004: on-chain JSON metadata)
     //////////////////////////////////
 
     /**
-     * @dev contract URI.
+     * @dev Representative word for the collection-level image (ADR-0004 D2).
+     * Hardcoded "絵" (e) — thematic because 絵 ≒ 絵文字 ≒ mojiemoji. Keeping it
+     * `constant` avoids any extra storage slot and any post-deploy mutation
+     * vector.
+     */
+    string private constant _CONTRACT_IMAGE_WORD = unicode"絵";
+
+    string private constant _DESCRIPTION_TOKEN =
+        "Onchain mojiemoji NFT. Each token derives a Japanese word from an on-chain Dictionary contract and renders it as an animated emoji image at mojiemoji.jozo.beer.";
+
+    string private constant _DESCRIPTION_COLLECTION =
+        "Onchain Mojiemoji: every token is a Japanese word picked deterministically from an on-chain, freezable Dictionary, rendered as an animated image via mojiemoji.jozo.beer.";
+
+    /**
+     * @dev Collection-level metadata — OpenSea-standard JSON returned as a
+     * `data:application/json;base64,...` URI (ADR-0004). The image points to
+     * mojiemoji.jozo.beer with the hardcoded representative word "絵".
      */
     function contractURI() public view returns (string memory) {
-        return string(abi.encodePacked(baseURI, "index.json"));
+        string memory imageUrl = string(
+            abi.encodePacked("https://mojiemoji.jozo.beer/?text=", _percentEncode(bytes(_CONTRACT_IMAGE_WORD)))
+        );
+        bytes memory json = abi.encodePacked(
+            '{"name":"Onchain Mojiemoji"',
+            ',"description":"',
+            _DESCRIPTION_COLLECTION,
+            '","image":"',
+            imageUrl,
+            '","external_link":"https://mojiemoji.jozo.beer/"',
+            ',"seller_fee_basis_points":',
+            uint256(_royaltyFraction).toString(),
+            ',"fee_recipient":"',
+            StringsUpgradeable.toHexString(_royaltyReceiver),
+            '"}'
+        );
+        return string(abi.encodePacked("data:application/json;base64,", Base64Upgradeable.encode(json)));
     }
 
     //////////////////////////////////
@@ -659,6 +695,47 @@ contract EMJ is
     }
 
     /**
+     * @dev RFC 8259 §7 JSON string escaping. Replaces `"` with `\"`, `\` with
+     * `\\`, and any control byte (0x00–0x1F) with the six-character
+     * `\u00XX` sequence. All other bytes (including UTF-8 high-bit bytes)
+     * pass through. Allocates worst-case 6× the input length.
+     *
+     * Defensive against Dictionary contents — `Dictionary.addWords` accepts
+     * arbitrary bytes (ADR-0002 §6 "dumb data store") and `setDictionary` is
+     * repointable, so the contract cannot assume off-chain sanitization at
+     * read time. Escaping here guarantees the JSON envelope returned by
+     * `tokenURI` is always well-formed regardless of Dictionary contents.
+     */
+    function _jsonEscape(bytes memory data) private pure returns (string memory) {
+        bytes16 HEX = "0123456789abcdef";
+        bytes memory out = new bytes(data.length * 6);
+        uint256 j;
+        for (uint256 i = 0; i < data.length; i++) {
+            bytes1 b = data[i];
+            if (b == 0x22) {
+                out[j++] = "\\";
+                out[j++] = '"';
+            } else if (b == 0x5C) {
+                out[j++] = "\\";
+                out[j++] = "\\";
+            } else if (uint8(b) < 0x20) {
+                out[j++] = "\\";
+                out[j++] = "u";
+                out[j++] = "0";
+                out[j++] = "0";
+                out[j++] = HEX[uint8(b) >> 4];
+                out[j++] = HEX[uint8(b) & 0x0F];
+            } else {
+                out[j++] = b;
+            }
+        }
+        assembly {
+            mstore(out, j)
+        }
+        return string(out);
+    }
+
+    /**
      * @dev RFC 3986 percent-encoding. Unreserved characters (A-Z a-z 0-9 - . _ ~)
      * pass through; every other byte expands to %XX with uppercase hex.
      * tokenURI is a view function so the gas cost of this loop is paid by no one
@@ -743,10 +820,18 @@ contract EMJ is
     }
 
     /**
-     * @dev token URI — Dream spec: dynamically compose a mojiemoji.jozo.beer URL by
-     * deriving a word from the Dictionary contract via a per-token deterministic
-     * hash. The URL itself IS the image (stateless service), so no off-chain JSON
-     * / IPFS / Arweave hosting is involved.
+     * @dev token URI — Dream spec (ADR-0001 + ADR-0002 + ADR-0004).
+     * Dictionary-derived word selection is unchanged; the chosen mojiemoji URL
+     * is now wrapped in an OpenSea-standard JSON envelope and returned as
+     * `data:application/json;base64,...`. The image URL inside the JSON is
+     * still the stateless mojiemoji.jozo.beer service that renders the word
+     * as an animated picture — Dream "URL = image" is preserved.
+     *
+     * Robust against arbitrary Dictionary contents: word bytes are
+     * JSON-escaped via `_jsonEscape` before embedding in the `value` field,
+     * so the envelope stays well-formed even if a future Dictionary contains
+     * `"`, `\`, or control characters. The image URL is percent-encoded so
+     * the same bytes are safe in the URL context.
      */
     function tokenURI(
         uint256 tokenId
@@ -755,6 +840,20 @@ contract EMJ is
         uint256 range = _wordSnapshotAtBatchStart[batchStart];
         uint256 idx = uint256(keccak256(abi.encode(tokenId))) % range;
         bytes memory text = dictionary.wordAt(idx);
-        return string(abi.encodePacked("https://mojiemoji.jozo.beer/?text=", _percentEncode(text)));
+        string memory imageUrl = string(
+            abi.encodePacked("https://mojiemoji.jozo.beer/?text=", _percentEncode(text))
+        );
+        bytes memory json = abi.encodePacked(
+            '{"name":"Onchain Mojiemoji #',
+            tokenId.toString(),
+            '","description":"',
+            _DESCRIPTION_TOKEN,
+            '","image":"',
+            imageUrl,
+            '","attributes":[{"trait_type":"word","value":"',
+            _jsonEscape(text),
+            '"}]}'
+        );
+        return string(abi.encodePacked("data:application/json;base64,", Base64Upgradeable.encode(json)));
     }
 }
