@@ -35,6 +35,20 @@ contract Dictionary is Initializable, UUPSUpgradeable, Ownable2StepUpgradeable {
     event WordsAdded(uint256 indexed startIndex, uint256 count);
     event UpgradesFrozen();
 
+    /**
+     * @notice Seeds the Dictionary with an initial vocabulary.
+     * @dev    Mainnet deployment must pass an EMPTY array here and seed the
+     *         vocabulary with subsequent `addWords` calls. EIP-3860 caps init
+     *         code at 49152 bytes (post-Shanghai), and the production seed
+     *         (~2243 UTF-8 words) overruns that limit when passed inline.
+     *         The production protocol is:
+     *           1. deploy via `initialize([])`
+     *           2. owner submits `addWords(chunk_1) ... addWords(chunk_N)`
+     *              (see libraries/dictionarySeed.ts — Issue #30)
+     *           3. owner calls `freeze()` to seal the upgrade path (ADR-0003)
+     *         The non-empty form is preserved for local fixtures / unit tests
+     *         where vocab is small enough to fit in init code.
+     */
     function initialize(bytes[] calldata initialWords) external initializer {
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
