@@ -9,6 +9,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # 11.x は pnpm-workspace.yaml の onlyBuiltDependencies が CI で
+  # 認識されず ERR_PNPM_IGNORED_BUILDS で fail するため、10 系 latest に pin。
+  # 両 job で参照するため workflow レベルで一元管理。
+  PNPM_VERSION: 10.33.4
+
 jobs:
   unit-test:
     runs-on: ubuntu-latest
@@ -17,9 +23,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          # 11.x は pnpm-workspace.yaml の onlyBuiltDependencies が CI で
-          # 認識されず ERR_PNPM_IGNORED_BUILDS で fail するため、10 系 latest に pin
-          version: 10.33.4
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
@@ -42,7 +46,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10.33.4
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
