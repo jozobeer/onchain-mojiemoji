@@ -695,6 +695,47 @@ contract EMJ is
     }
 
     /**
+     * @dev RFC 8259 §7 JSON string escaping. Replaces `"` with `\"`, `\` with
+     * `\\`, and any control byte (0x00–0x1F) with the six-character
+     * `\u00XX` sequence. All other bytes (including UTF-8 high-bit bytes)
+     * pass through. Allocates worst-case 6× the input length.
+     *
+     * Defensive against Dictionary contents — `Dictionary.addWords` accepts
+     * arbitrary bytes (ADR-0002 §6 "dumb data store") and `setDictionary` is
+     * repointable, so the contract cannot assume off-chain sanitization at
+     * read time. Escaping here guarantees the JSON envelope returned by
+     * `tokenURI` is always well-formed regardless of Dictionary contents.
+     */
+    function _jsonEscape(bytes memory data) private pure returns (string memory) {
+        bytes16 HEX = "0123456789abcdef";
+        bytes memory out = new bytes(data.length * 6);
+        uint256 j;
+        for (uint256 i = 0; i < data.length; i++) {
+            bytes1 b = data[i];
+            if (b == 0x22) {
+                out[j++] = "\\";
+                out[j++] = '"';
+            } else if (b == 0x5C) {
+                out[j++] = "\\";
+                out[j++] = "\\";
+            } else if (uint8(b) < 0x20) {
+                out[j++] = "\\";
+                out[j++] = "u";
+                out[j++] = "0";
+                out[j++] = "0";
+                out[j++] = HEX[uint8(b) >> 4];
+                out[j++] = HEX[uint8(b) & 0x0F];
+            } else {
+                out[j++] = b;
+            }
+        }
+        assembly {
+            mstore(out, j)
+        }
+        return string(out);
+    }
+
+    /**
      * @dev RFC 3986 percent-encoding. Unreserved characters (A-Z a-z 0-9 - . _ ~)
      * pass through; every other byte expands to %XX with uppercase hex.
      * tokenURI is a view function so the gas cost of this loop is paid by no one
@@ -786,10 +827,11 @@ contract EMJ is
      * still the stateless mojiemoji.jozo.beer service that renders the word
      * as an animated picture — Dream "URL = image" is preserved.
      *
-     * Assumption: words sourced from Dictionary are JSON-safe (no raw control
-     * chars, no `"` or `\`). sanitize.ts (the build-time gate) enforces this
-     * by restricting input to the Japanese letter ranges. The contract trusts
-     * that gate per ADR-0002 §6 ("contract is a dumb data store").
+     * Robust against arbitrary Dictionary contents: word bytes are
+     * JSON-escaped via `_jsonEscape` before embedding in the `value` field,
+     * so the envelope stays well-formed even if a future Dictionary contains
+     * `"`, `\`, or control characters. The image URL is percent-encoded so
+     * the same bytes are safe in the URL context.
      */
     function tokenURI(
         uint256 tokenId
@@ -809,7 +851,7 @@ contract EMJ is
             '","image":"',
             imageUrl,
             '","attributes":[{"trait_type":"word","value":"',
-            text,
+            _jsonEscape(text),
             '"}]}'
         );
         return string(abi.encodePacked("data:application/json;base64,", Base64Upgradeable.encode(json)));

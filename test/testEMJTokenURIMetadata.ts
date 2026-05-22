@@ -4,6 +4,7 @@ import { ethers, upgrades } from "hardhat"
 import { describe, it } from "mocha"
 
 import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { decodeTokenMetadata } from "./helpers/metadata"
 
 // ADR-0004: tokenURI returns `data:application/json;base64,<base64(JSON)>` where
 // the decoded JSON is OpenSea-standard token metadata. Tests here lock the
@@ -11,24 +12,6 @@ import { LatestEMJ, latestEMJFactory } from "../libraries/const"
 // Dictionary-derivation / snapshot / aliasing behavior live in
 // testEMJTokenURIDictionary.ts. The two suites verify orthogonal aspects of
 // the same function: structure vs derivation.
-
-const DATA_URI_PREFIX = "data:application/json;base64,"
-
-interface TokenMetadata {
-    name: string
-    description: string
-    image: string
-    attributes: Array<{ trait_type: string; value: string }>
-}
-
-const decodeTokenMetadata = (uri: string): TokenMetadata => {
-    if (!uri.startsWith(DATA_URI_PREFIX)) {
-        throw new Error(`expected data URI prefix, got: ${uri.slice(0, 64)}...`)
-    }
-    const base64 = uri.slice(DATA_URI_PREFIX.length)
-    const json = Buffer.from(base64, "base64").toString("utf8")
-    return JSON.parse(json) as TokenMetadata
-}
 
 const word = (s: string): Uint8Array => toUtf8Bytes(s)
 
@@ -149,6 +132,55 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
         })
     })
 
+    describe("JSON-unsafe word bytes (defensive escape)", () => {
+        // Dictionary is a dumb data store (ADR-0002 §6) and setDictionary is
+        // repointable, so the contract cannot trust off-chain sanitizers at
+        // read time. _jsonEscape must round-trip raw bytes through the JSON
+        // envelope cleanly. (Codex / Copilot P1 review on PR #29.)
+
+        it("Escapes double-quote (0x22) so JSON parses and value round-trips", async () => {
+            const w = 'has"quote'
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect(meta.attributes[0].value).to.equal(w)
+        })
+
+        it("Escapes backslash (0x5C) so JSON parses and value round-trips", async () => {
+            const w = "has\\backslash"
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect(meta.attributes[0].value).to.equal(w)
+        })
+
+        it("Escapes newline (0x0A) so JSON parses and value round-trips", async () => {
+            const w = "line1\nline2"
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect(meta.attributes[0].value).to.equal(w)
+        })
+
+        it("Escapes null byte (0x00) so JSON parses and value round-trips", async () => {
+            const w = "before\x00after"
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect(meta.attributes[0].value).to.equal(w)
+        })
+
+        it("Passes through high-bit UTF-8 bytes unchanged (Japanese)", async () => {
+            // UTF-8 continuation bytes (0x80-0xFF) are NOT control chars and
+            // must not be escaped — JSON.parse decodes the UTF-8 sequence.
+            const w = "焼く"
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect(meta.attributes[0].value).to.equal(w)
+        })
+    })
+
     describe("View function semantics preserved", () => {
         it("Reverts for non-existent token (same as before ADR-0004)", async () => {
             const { emj } = await deployEMJWithDict(["勝った"])
@@ -173,4 +205,3 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
     })
 })
 
-export { decodeTokenMetadata, DATA_URI_PREFIX }

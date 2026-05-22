@@ -3,29 +3,11 @@ import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
 import { deployFreshEMJ } from "../libraries/const"
-import { DATA_URI_PREFIX } from "./testEMJTokenURIMetadata"
+import { decodeContractMetadata } from "./helpers/metadata"
 
 // ADR-0004: contractURI returns `data:application/json;base64,<base64(JSON)>`
 // where the decoded payload is OpenSea-standard collection-level metadata.
 // The previous `baseURI + "index.json"` external-URL form is retired (Issue #28).
-
-interface ContractMetadata {
-    name: string
-    description: string
-    image: string
-    external_link: string
-    seller_fee_basis_points: number
-    fee_recipient: string
-}
-
-const decodeContractMetadata = (uri: string): ContractMetadata => {
-    if (!uri.startsWith(DATA_URI_PREFIX)) {
-        throw new Error(`expected data URI prefix, got: ${uri.slice(0, 64)}...`)
-    }
-    const base64 = uri.slice(DATA_URI_PREFIX.length)
-    const json = Buffer.from(base64, "base64").toString("utf8")
-    return JSON.parse(json) as ContractMetadata
-}
 
 describe("EMJ ContractURI (OpenSea collection metadata)", () => {
     describe("Data URI envelope", () => {
@@ -122,4 +104,3 @@ describe("EMJ ContractURI (OpenSea collection metadata)", () => {
     })
 })
 
-export { decodeContractMetadata }

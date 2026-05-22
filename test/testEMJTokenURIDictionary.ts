@@ -4,7 +4,7 @@ import { ethers, upgrades } from "hardhat"
 import { describe, it } from "mocha"
 
 import { LatestEMJ, latestEMJFactory } from "../libraries/const"
-import { decodeTokenMetadata } from "./testEMJTokenURIMetadata"
+import { decodeTokenMetadata } from "./helpers/metadata"
 
 // Helpers --------------------------------------------------------------------
 
@@ -289,12 +289,17 @@ describe("EMJ TokenURI (Dictionary-derived image URL)", () => {
             expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
         })
 
-        // Note: the previous "word with newline" case was retired in ADR-0004.
-        // Raw control characters (\n / \t / etc.) inside a word would emit an
-        // invalid JSON envelope (RFC 8259 forbids unescaped control chars in
-        // strings). The contract trusts that sanitize.ts (the dictionary build
-        // gate) rejects such inputs before they reach the Dictionary — see
-        // ADR-0002 §6 ("contract is a dumb data store") and ADR-0004 § Cons.
+        it("Image is correctly percent-encoded URL for word with newline", async () => {
+            // The newline is JSON-escaped (as \u000a) inside the attribute
+            // value, and percent-encoded (as %0A) inside the image URL. Both
+            // round-trip cleanly through JSON.parse / URL parsing. See the
+            // "JSON-unsafe word bytes" suite in testEMJTokenURIMetadata.ts
+            // for the attribute-value side.
+            const w = "勝利\nがち"
+            const { emj } = await deployEMJWithDict([w])
+            await emj.adminMint(1)
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
+        })
 
         // _percentEncode treats !'()* as reserved (RFC 3986 strict), unlike JS
         // encodeURIComponent which leaves them bare. Pin the encoder behavior
