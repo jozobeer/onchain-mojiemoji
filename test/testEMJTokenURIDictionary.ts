@@ -289,15 +289,12 @@ describe("EMJ TokenURI (Dictionary-derived image URL)", () => {
             expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
         })
 
-        it("Image is correctly percent-encoded URL for word with newline", async () => {
-            // Newlines in the word would break the JSON envelope if not properly
-            // escaped — JSON.parse on the decoded payload still has to succeed.
-            // The attribute value preserves the raw newline; image is percent-encoded.
-            const w = "勝利\nがち"
-            const { emj } = await deployEMJWithDict([w])
-            await emj.adminMint(1)
-            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
-        })
+        // Note: the previous "word with newline" case was retired in ADR-0004.
+        // Raw control characters (\n / \t / etc.) inside a word would emit an
+        // invalid JSON envelope (RFC 8259 forbids unescaped control chars in
+        // strings). The contract trusts that sanitize.ts (the dictionary build
+        // gate) rejects such inputs before they reach the Dictionary — see
+        // ADR-0002 §6 ("contract is a dumb data store") and ADR-0004 § Cons.
 
         // _percentEncode treats !'()* as reserved (RFC 3986 strict), unlike JS
         // encodeURIComponent which leaves them bare. Pin the encoder behavior
