@@ -204,4 +204,3 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
         })
     })
 })
-

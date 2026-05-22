@@ -29,8 +29,7 @@ const decodeDataUri = (uri: string): string => {
     return Buffer.from(uri.slice(DATA_URI_PREFIX.length), "base64").toString("utf8")
 }
 
-export const decodeTokenMetadata = (uri: string): TokenMetadata =>
-    JSON.parse(decodeDataUri(uri)) as TokenMetadata
+export const decodeTokenMetadata = (uri: string): TokenMetadata => JSON.parse(decodeDataUri(uri)) as TokenMetadata
 
 export const decodeContractMetadata = (uri: string): ContractMetadata =>
     JSON.parse(decodeDataUri(uri)) as ContractMetadata

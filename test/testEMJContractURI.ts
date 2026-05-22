@@ -103,4 +103,3 @@ describe("EMJ ContractURI (OpenSea collection metadata)", () => {
         })
     })
 })
-
