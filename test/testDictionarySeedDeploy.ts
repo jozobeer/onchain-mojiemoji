@@ -162,10 +162,7 @@ describe("Dictionary chunked seed deploy (Issue #30 — EIP-3860 compliant)", ()
             // attributable to a specific index in the assertion message.
             for (const i of probes) {
                 const onChain = getBytes(await dict.wordAt(i))
-                expect(
-                    Buffer.from(onChain).equals(Buffer.from(allWords[i])),
-                    `wordAt(${i}) mismatch`,
-                ).to.equal(true)
+                expect(Buffer.from(onChain).equals(Buffer.from(allWords[i])), `wordAt(${i}) mismatch`).to.equal(true)
             }
         }).timeout(120_000)
     })
