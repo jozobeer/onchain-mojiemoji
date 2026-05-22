@@ -156,6 +156,10 @@ describe("Dictionary chunked seed deploy (Issue #30 — EIP-3860 compliant)", ()
                 last - 1,
                 last,
             ].filter((i) => i >= 0 && i < allWords.length)
+            // Sequential awaits on a single view function with a small probe
+            // set — not a real N+1 (deterministic boundary sample, no
+            // batchable DB analog). Keeping sequential keeps failures
+            // attributable to a specific index in the assertion message.
             for (const i of probes) {
                 const onChain = getBytes(await dict.wordAt(i))
                 expect(
@@ -167,12 +171,21 @@ describe("Dictionary chunked seed deploy (Issue #30 — EIP-3860 compliant)", ()
     })
 
     describe("freeze() after full chunked seed (ADR-0003 cross-cut)", () => {
-        it("Subsequent addWords reverts after freeze()", async () => {
+        // ADR-0003 / Dictionary.sol NatSpec: freeze() seals upgrade authority
+        // only — `addWords` and `transferOwnership` remain available
+        // post-freeze. The cross-cut tests below pin both halves of that
+        // invariant so any future refactor that conflates "frozen vocabulary"
+        // with "frozen upgrades" breaks here loudly.
+
+        it("addWords still works after freeze() (only upgrade authority is sealed)", async () => {
             const dict = await deployEmptyDictionary()
             const allWords = loadFullVocabulary()
             await seedDictionary(dict, allWords)
             await dict.freeze()
-            await expect(dict.addWords([getBytes("0xe7849d")])).to.be.reverted
+            // ADR-0003: mutation is intentionally NOT blocked by freeze().
+            const before = (await dict.wordCount()) as bigint
+            await dict.addWords([getBytes("0xe7849d")])
+            expect(await dict.wordCount()).to.equal(before + 1n)
         }).timeout(120_000)
 
         it("wordAt remains queryable for the full range after freeze()", async () => {
