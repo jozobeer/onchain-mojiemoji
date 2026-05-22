@@ -39,14 +39,17 @@ export const seedDictionary = async (
 
     // Sequential reduce — addWords mutates contract state, so each tx must be
     // mined before the next is sent to keep ordering deterministic and avoid
-    // nonce/state races. Declarative over reduce + Promise chain rather than
-    // an imperative for-loop (per .claude/rules/code-philosophy.md).
+    // nonce/state races. Push into a mutable accumulator inside the reduce
+    // scope (Swift `reduce(into:)` equivalent — explicitly allowed by
+    // .claude/rules/code-philosophy.md as the performance exception) to avoid
+    // O(n^2) array copies as the chunk count grows.
     const chunkGasUsed = await chunks.reduce<Promise<bigint[]>>(async (accP, chunk) => {
         const acc = await accP
         const tx = await dict.addWords(chunk)
         const receipt = await tx.wait()
         if (receipt === null) throw new Error("addWords transaction receipt was null")
-        return [...acc, receipt.gasUsed as bigint]
+        acc.push(receipt.gasUsed as bigint)
+        return acc
     }, Promise.resolve([]))
 
     return { chunksSubmitted: chunks.length, chunkGasUsed }
