@@ -4,6 +4,7 @@ import { ethers, upgrades } from "hardhat"
 import { describe, it } from "mocha"
 
 import { LatestEMJ, latestEMJFactory } from "../libraries/const"
+import { decodeTokenMetadata } from "./testEMJTokenURIMetadata"
 
 // Helpers --------------------------------------------------------------------
 
@@ -31,6 +32,14 @@ const percentEncode = (text: string): string => {
         .join("")
 }
 const expectedUrlForWord = (w: string): string => `${BASE_URL}${percentEncode(w)}`
+
+// ADR-0004: tokenURI returns base64-encoded JSON. This suite verifies the
+// Dictionary-derivation rules (which word is chosen, snapshot semantics,
+// aliasing) by extracting the `image` field from the decoded metadata and
+// comparing against the expected mojiemoji URL. Pure JSON structure
+// assertions live in testEMJTokenURIMetadata.ts.
+const imageOf = async (emj: LatestEMJ, tokenId: number | bigint): Promise<string> =>
+    decodeTokenMetadata(await emj.tokenURI(tokenId)).image
 
 const deployDictionary = async (initialWords: Uint8Array[]): Promise<Contract> => {
     const factory = await ethers.getContractFactory("Dictionary")
@@ -61,7 +70,7 @@ const expectedWord = (words: string[], tokenId: number, range: number): string =
 
 // ----------------------------------------------------------------------------
 
-describe("EMJ TokenURI (Dictionary-derived)", () => {
+describe("EMJ TokenURI (Dictionary-derived image URL)", () => {
     describe("Dictionary Reference (setDictionary)", () => {
         it("Returns zero address before setDictionary is called", async () => {
             const emj = await deployEMJ()
@@ -98,11 +107,11 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
         })
     })
 
-    describe("tokenURI Happy Path", () => {
-        it("Returns mojiemoji URL for the single word in a 1-word Dictionary", async () => {
+    describe("tokenURI image URL — happy path", () => {
+        it("Image is mojiemoji URL for the single word in a 1-word Dictionary", async () => {
             const { emj } = await deployEMJWithDict(["勝った"])
             await emj.adminMint(1)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord("勝った"))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord("勝った"))
         })
 
         it("Picks one word deterministically via keccak256(abi.encode(tokenId)) % range", async () => {
@@ -111,15 +120,15 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             await emj.adminMint(1)
 
             const expected = expectedWord(words, 1, words.length)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(expected))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(expected))
         })
 
         it("Returns the same URL across repeated tokenURI calls for the same tokenId", async () => {
             const { emj } = await deployEMJWithDict(["焼く", "勝った", "光る"])
             await emj.adminMint(1)
 
-            const first = await emj.tokenURI(1)
-            const second = await emj.tokenURI(1)
+            const first = await imageOf(emj, 1)
+            const second = await imageOf(emj, 1)
             expect(first).to.equal(second)
         })
 
@@ -148,10 +157,10 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             const dictCount: bigint = await dict.wordCount()
             expect(dictCount).to.equal(3n)
             const samples = [1, 5, 10]
-            const uris = await Promise.all(samples.map((id) => emj.tokenURI(id)))
+            const images = await Promise.all(samples.map((id) => imageOf(emj, id)))
             samples.forEach((id, i) => {
                 const expected = expectedWord(["焼く", "勝った", "光る"], id, 3)
-                expect(uris[i]).to.equal(expectedUrlForWord(expected))
+                expect(images[i]).to.equal(expectedUrlForWord(expected))
             })
         })
 
@@ -165,11 +174,11 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
 
             const extended = [...words, "夢を見る", "祈る"]
             // Batch 1 tokens see range 3
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(expectedWord(words, 1, 3)))
-            expect(await emj.tokenURI(3)).to.equal(expectedUrlForWord(expectedWord(words, 3, 3)))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(expectedWord(words, 1, 3)))
+            expect(await imageOf(emj, 3)).to.equal(expectedUrlForWord(expectedWord(words, 3, 3)))
             // Batch 2 tokens see range 5
-            expect(await emj.tokenURI(4)).to.equal(expectedUrlForWord(expectedWord(extended, 4, 5)))
-            expect(await emj.tokenURI(5)).to.equal(expectedUrlForWord(expectedWord(extended, 5, 5)))
+            expect(await imageOf(emj, 4)).to.equal(expectedUrlForWord(expectedWord(extended, 4, 5)))
+            expect(await imageOf(emj, 5)).to.equal(expectedUrlForWord(expectedWord(extended, 5, 5)))
         })
 
         it("Keeps existing tokens' tokenURI unchanged after Dictionary.addWords", async () => {
@@ -186,15 +195,15 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
         it("Lets newly-minted tokens see the extended Dictionary range", async () => {
             const words = ["焼く"]
             const { emj, dict } = await deployEMJWithDict(words)
-            await emj.adminMint(1) // batch 1: range = 1, tokenURI(1) = "焼く"
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord("焼く"))
+            await emj.adminMint(1) // batch 1: range = 1, image for token 1 = "焼く"
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord("焼く"))
 
             await dict.addWords([word("勝った"), word("光る")])
             await emj.adminMint(1) // batch 2: range = 3
 
             const extended = ["焼く", "勝った", "光る"]
             const expected = expectedWord(extended, 2, 3)
-            expect(await emj.tokenURI(2)).to.equal(expectedUrlForWord(expected))
+            expect(await imageOf(emj, 2)).to.equal(expectedUrlForWord(expected))
         })
     })
 
@@ -221,7 +230,7 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
 
             await dict.addWords([word("焼く")])
             await expect(emj.adminMint(1)).to.not.be.reverted
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord("焼く"))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord("焼く"))
         })
     })
 
@@ -235,7 +244,7 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             await emj.adminMint(1) // batch 2: snapshot = 5 (new dict)
 
             const expected = expectedWord(["A", "B", "C", "D", "E"], 2, 5)
-            expect(await emj.tokenURI(2)).to.equal(expectedUrlForWord(expected))
+            expect(await imageOf(emj, 2)).to.equal(expectedUrlForWord(expected))
         })
 
         it("Existing tokens' tokenURI aliases to new dictionary's wordAt(old_index)", async () => {
@@ -251,7 +260,7 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             const dict2 = await deployDictionary(newWords.map(word))
             await emj.setDictionary(await dict2.getAddress())
 
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(newWords[oldIndex]))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(newWords[oldIndex]))
         })
     })
 
@@ -259,32 +268,35 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
         // Each case is its own it() to avoid a forEach-around-it pattern that the
         // shared n-plus-one lint flags as a false positive.
 
-        it("Returns correctly percent-encoded URL for kanji-only word", async () => {
+        it("Image is correctly percent-encoded URL for kanji-only word", async () => {
             const w = "勝った"
             const { emj } = await deployEMJWithDict([w])
             await emj.adminMint(1)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(w))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
         })
 
-        it("Returns correctly percent-encoded URL for hiragana-only word", async () => {
+        it("Image is correctly percent-encoded URL for hiragana-only word", async () => {
             const w = "あいうえ"
             const { emj } = await deployEMJWithDict([w])
             await emj.adminMint(1)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(w))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
         })
 
-        it("Returns correctly percent-encoded URL for kanji+hiragana mix", async () => {
+        it("Image is correctly percent-encoded URL for kanji+hiragana mix", async () => {
             const w = "焼く"
             const { emj } = await deployEMJWithDict([w])
             await emj.adminMint(1)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(w))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
         })
 
-        it("Returns correctly percent-encoded URL for word with newline", async () => {
+        it("Image is correctly percent-encoded URL for word with newline", async () => {
+            // Newlines in the word would break the JSON envelope if not properly
+            // escaped — JSON.parse on the decoded payload still has to succeed.
+            // The attribute value preserves the raw newline; image is percent-encoded.
             const w = "勝利\nがち"
             const { emj } = await deployEMJWithDict([w])
             await emj.adminMint(1)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord(w))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord(w))
         })
 
         // _percentEncode treats !'()* as reserved (RFC 3986 strict), unlike JS
@@ -297,7 +309,7 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             await emj.adminMint(1)
             const expected = `${BASE_URL}a%21b%27c%28d%29e%2Af`
             expect(expectedUrlForWord(w)).to.equal(expected)
-            expect(await emj.tokenURI(1)).to.equal(expected)
+            expect(await imageOf(emj, 1)).to.equal(expected)
         })
     })
 
@@ -305,7 +317,7 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
         it("adminMint-minted token has a working tokenURI", async () => {
             const { emj } = await deployEMJWithDict(["焼く"])
             await emj.adminMint(1)
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord("焼く"))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord("焼く"))
         })
 
         it("publicMint-minted token has a working tokenURI", async () => {
@@ -314,7 +326,7 @@ describe("EMJ TokenURI (Dictionary-derived)", () => {
             // publicMint is open by default in initialize (start=0, end=max).
             // The default publicMintPrice is 1 ether.
             await emj.connect(alice).publicMint(1, { value: ethers.parseEther("1") })
-            expect(await emj.tokenURI(1)).to.equal(expectedUrlForWord("焼く"))
+            expect(await imageOf(emj, 1)).to.equal(expectedUrlForWord("焼く"))
         })
 
         it("Preserves tokenURI across transferFrom (ownership-independent)", async () => {
