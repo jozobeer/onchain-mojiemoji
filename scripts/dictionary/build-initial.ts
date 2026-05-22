@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { stderr } from "node:process"
+import { exit, stderr } from "node:process"
 
 import { sanitize, toHexBytes } from "./sanitize"
 
@@ -51,12 +51,33 @@ const reportStats = (stats: BuildStats): void => {
     stderr.write(`rejected:           ${stats.rejected}\n`)
 }
 
+// duplicate だけは intent ある編集の利便性として許容する (ドラフト中の重複行は
+// dedup で吸収)。empty / too-long / non-japanese は不正データなので freeze 前
+// 提を尊重して fail-fast — silently 部分ドロップした JSON で deploy される事故
+// を防ぐ (Codex review P2)。
+const FATAL_REJECT_REASONS = ["empty", "too-long", "non-japanese"] as const
+type FatalReason = (typeof FATAL_REJECT_REASONS)[number]
+
+const isFatalReject = (reason: string): reason is FatalReason =>
+    (FATAL_REJECT_REASONS as readonly string[]).includes(reason)
+
 export const buildInitial = (): BuildStats => {
     const { raw, rawLineCount } = parseInputFile(INPUT_PATH)
     const { sanitized, rejected } = sanitize(raw)
     rejected.forEach(({ word, reason }) => {
         stderr.write(`reject [${reason}]: ${JSON.stringify(word)}\n`)
     })
+
+    const fatal = rejected.filter(({ reason }) => isFatalReject(reason))
+    if (fatal.length > 0) {
+        stderr.write(
+            `---\nABORT: ${fatal.length} fatal reject(s) ` +
+                `(${FATAL_REJECT_REASONS.join(" / ")}). ` +
+                `freeze 前提のため部分ドロップを許可しない — initial-words.txt を修正してから再実行。\n`,
+        )
+        throw new Error(`buildInitial: ${fatal.length} fatal sanitizer rejection(s)`)
+    }
+
     const hex = toHexBytes(sanitized)
     writeOutput(OUTPUT_PATH, hex)
     const stats: BuildStats = {
@@ -71,5 +92,10 @@ export const buildInitial = (): BuildStats => {
 }
 
 if (require.main === module) {
-    buildInitial()
+    try {
+        buildInitial()
+    } catch (err) {
+        stderr.write(`${err instanceof Error ? err.message : String(err)}\n`)
+        exit(1)
+    }
 }
