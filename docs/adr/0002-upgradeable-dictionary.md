@@ -58,10 +58,10 @@ interface IDictionary {
 
 ### 3. Dictionary は別 contract + **UUPS Upgradeable**
 
-EMJ と Dictionary はそれぞれ <img src="https://mojiemoji.jozo.beer/emoji/%E7%8B%AC%E7%AB%8B?font=maru-bold&color=22c55e&animation=mochimochi&speed=slow&background=transparent&outline=darker&outline_width=2" alt="独立" height="24" align="absmiddle"> な UUPS proxy として deploy し、external call で連携：
+EMJ（Transparent proxy、ADR-0006）と Dictionary（UUPS proxy）はそれぞれ <img src="https://mojiemoji.jozo.beer/emoji/%E7%8B%AC%E7%AB%8B?font=maru-bold&color=22c55e&animation=mochimochi&speed=slow&background=transparent&outline=darker&outline_width=2" alt="独立" height="24" align="absmiddle"> な proxy として deploy し、external call で連携：
 
 ```
-EMJ (UUPS) ──external call──> Dictionary (UUPS)
+EMJ (Transparent) ──external call──> Dictionary (UUPS)
 ```
 
 Dictionary を独立 deploy する <img src="https://mojiemoji.jozo.beer/emoji/%E5%88%A9%E7%82%B9?font=gothic-bold&color=60a5fa&animation=kirari&speed=normal&background=transparent&outline=darker&outline_width=2" alt="利点" height="24" align="absmiddle">：他プロジェクトからも借用可能な public good（mojiemoji 互換の日本語語彙 oracle）。

@@ -1,7 +1,7 @@
 // Local-net smoke test for ADR-0004 (on-chain JSON metadata).
 //
-// Boots an in-process hardhat network, deploys Dictionary + EMJ as UUPS
-// proxies, wires them together, mints a few tokens, then decodes the
+// Boots an in-process hardhat network, deploys Dictionary (UUPS) + EMJ
+// (Transparent) proxies, wires them together, mints a few tokens, then decodes the
 // data:application/json;base64,... payload from tokenURI(1..N) and
 // contractURI() to verify the OpenSea-standard JSON shape end-to-end.
 //

@@ -24,7 +24,7 @@
 | 観点 | 採用 |
 |---|---|
 | 規格 | ERC-721 + ERC-721Psi（バッチ mint 効率） |
-| 拡張 | Burnable / Upgradeable (UUPS) |
+| 拡張 | Burnable / Upgradeable (Transparent proxy) |
 | ライセンス制御 | Operator Filter Registry |
 | Mint 制御 | Merkle proof allowlist |
 | Stamp.text 格納 | `bytes32` inline (Short String Optimization)、1 slot 固定 |
