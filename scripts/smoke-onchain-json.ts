@@ -24,6 +24,24 @@ const decode = (uri: string): unknown => {
     return JSON.parse(Buffer.from(uri.slice(DATA_URI_PREFIX.length), "base64").toString("utf8"))
 }
 
+// The mojiemoji.jozo.beer endpoint 403s default (node / urllib) User-Agents,
+// so a browser UA is required to fetch the rendered Stamp.
+const BROWSER_UA =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+// ADR-0005 regression guard: the `image` field MUST resolve to an actual image
+// (Content-Type: image/*). The retired `/?text=` form returned the HTML SPA
+// shell (text/html), which is exactly the bug this fix closes — so a text/html
+// response here means the metadata regressed back to the broken URL form.
+const assertImage = async (url: string, label: string): Promise<void> => {
+    const res = await fetch(url, { headers: { "User-Agent": BROWSER_UA } })
+    const contentType = res.headers.get("content-type") ?? ""
+    if (!res.ok || !contentType.startsWith("image/")) {
+        throw new Error(`${label}: expected HTTP 200 image/*, got HTTP ${res.status} "${contentType}" — ${url}`)
+    }
+    console.log(`  ✓ ${label}: HTTP ${res.status} ${contentType}`)
+}
+
 // EIP-3860 caps init code at 49152 bytes, so the full 2243-word vocabulary
 // can't be passed to `Dictionary.initialize(bytes[])` in a single deploy tx.
 // This smoke exercises the mainnet-realistic shape: `initialize([])` plus
@@ -68,12 +86,23 @@ async function main() {
     console.log(`\n--- contractURI ---`)
     console.log(JSON.stringify(cMeta, null, 2))
 
-    for (const tokenId of [1, 2, 3]) {
-        const uri = (await emj.tokenURI(tokenId)) as string
-        const meta = decode(uri) as Record<string, unknown>
-        console.log(`\n--- tokenURI(${tokenId}) ---`)
+    const tokenMetas = await Promise.all(
+        [1, 2, 3].map(async (tokenId) => decode((await emj.tokenURI(tokenId)) as string) as Record<string, unknown>),
+    )
+    tokenMetas.forEach((meta, i) => {
+        console.log(`\n--- tokenURI(${i + 1}) ---`)
         console.log(JSON.stringify(meta, null, 2))
-    }
+    })
+
+    // ADR-0005 end-to-end proof: every `image` field must resolve to a live
+    // image/* response, not the legacy text/html SPA shell. Independent URLs,
+    // so the content-type checks run concurrently.
+    console.log(`\n--- live image Content-Type checks (ADR-0005) ---`)
+    const imageChecks = [
+        assertImage(cMeta.image as string, "contractURI.image"),
+        ...tokenMetas.map((meta, i) => assertImage(meta.image as string, `tokenURI(${i + 1}).image`)),
+    ]
+    await Promise.all(imageChecks)
 }
 
 main().catch((error) => {
