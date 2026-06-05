@@ -3,6 +3,7 @@ import { ethers } from "hardhat"
 import { describe, it } from "mocha"
 
 import { deployFreshEMJ } from "../libraries/const"
+import { contractImageUrl } from "../libraries/stampParams"
 import { decodeContractMetadata } from "./helpers/metadata"
 
 // ADR-0004: contractURI returns `data:application/json;base64,<base64(JSON)>`
@@ -46,19 +47,24 @@ describe("EMJ ContractURI (OpenSea collection metadata)", () => {
         })
     })
 
-    describe("Image field — hardcoded representative word '絵' (ADR-0004 D2)", () => {
-        it("image is a mojiemoji URL with percent-encoded '絵'", async () => {
+    describe("Image field — hardcoded representative word '絵' with curated Params (ADR-0004 D2 / ADR-0005 D5)", () => {
+        it("image is the curated /emoji/ URL with percent-encoded '絵'", async () => {
             const emj = await deployFreshEMJ()
             const meta = decodeContractMetadata(await emj.contractURI())
-            // "絵" in UTF-8 is 0xE7 0xB5 0xB5 → percent-encoded as "%E7%B5%B5"
-            expect(meta.image).to.equal("https://mojiemoji.jozo.beer/?text=%E7%B5%B5")
+            // "絵" in UTF-8 is 0xE7 0xB5 0xB5 → "%E7%B5%B5". The collection has no
+            // tokenId, so Params are hand-curated and fixed (ADR-0005 D5).
+            expect(meta.image).to.equal(
+                "https://mojiemoji.jozo.beer/emoji/%E7%B5%B5?font=dela&color=f59e0b&animation=kira&speed=normal",
+            )
+            // Cross-check against the shared oracle so the two surfaces never drift.
+            expect(meta.image).to.equal(contractImageUrl())
         })
 
-        it("image text param decodes back to '絵'", async () => {
+        it("image path segment decodes back to '絵'", async () => {
             const emj = await deployFreshEMJ()
             const meta = decodeContractMetadata(await emj.contractURI())
-            const u = new URL(meta.image)
-            expect(u.searchParams.get("text")).to.equal("絵")
+            const segment = new URL(meta.image).pathname.slice("/emoji/".length)
+            expect(decodeURIComponent(segment)).to.equal("絵")
         })
     })
 

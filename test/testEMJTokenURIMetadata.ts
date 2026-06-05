@@ -80,11 +80,11 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
             expect(meta.description.length).to.be.greaterThan(0)
         })
 
-        it("Includes image field with mojiemoji.jozo.beer URL prefix", async () => {
+        it("Includes image field with mojiemoji.jozo.beer /emoji/ URL prefix (ADR-0005)", async () => {
             const { emj } = await deployEMJWithDict(["勝った"])
             await emj.adminMint(1)
             const meta = decodeTokenMetadata(await emj.tokenURI(1))
-            expect(meta.image).to.match(/^https:\/\/mojiemoji\.jozo\.beer\/\?text=/)
+            expect(meta.image).to.match(/^https:\/\/mojiemoji\.jozo\.beer\/emoji\//)
         })
     })
 
@@ -123,12 +123,13 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
     })
 
     describe("Coherence between image and attributes", () => {
-        it("image URL's text param decodes to the same word as attribute value", async () => {
+        it("image URL's path segment decodes to the same word as attribute value (ADR-0005)", async () => {
             const { emj } = await deployEMJWithDict(["勝った"])
             await emj.adminMint(1)
             const meta = decodeTokenMetadata(await emj.tokenURI(1))
-            const u = new URL(meta.image)
-            expect(u.searchParams.get("text")).to.equal(meta.attributes[0].value)
+            // ADR-0005: the word now lives in the /emoji/<word> path segment, not a ?text= query param.
+            const segment = new URL(meta.image).pathname.slice("/emoji/".length)
+            expect(decodeURIComponent(segment)).to.equal(meta.attributes[0].value)
         })
     })
 

@@ -41,6 +41,7 @@ import {
 import {IDictionary} from "./interfaces/IDictionary.sol";
 import {IPublicMintable} from "./interfaces/IPublicMintable.sol";
 import {IAllowlistMintable} from "./interfaces/IAllowlistMintable.sol";
+import {StampParams} from "./StampParams.sol";
 
 contract EMJ is
     ERC721PsiBurnableUpgradeable,
@@ -247,10 +248,19 @@ contract EMJ is
      * @dev Collection-level metadata — OpenSea-standard JSON returned as a
      * `data:application/json;base64,...` URI (ADR-0004). The image points to
      * mojiemoji.jozo.beer with the hardcoded representative word "絵".
+     *
+     * The collection has no tokenId, so its Params cannot be hash-derived;
+     * instead a hand-curated set is fixed (ADR-0005 D5) on the same `/emoji/`
+     * form the per-token image uses, so both surfaces render an image (not the
+     * legacy `/?text=` HTML shell).
      */
     function contractURI() public view returns (string memory) {
         string memory imageUrl = string(
-            abi.encodePacked("https://mojiemoji.jozo.beer/?text=", _percentEncode(bytes(_CONTRACT_IMAGE_WORD)))
+            abi.encodePacked(
+                "https://mojiemoji.jozo.beer/emoji/",
+                _percentEncode(bytes(_CONTRACT_IMAGE_WORD)),
+                "?font=dela&color=f59e0b&animation=kira&speed=normal"
+            )
         );
         bytes memory json = abi.encodePacked(
             '{"name":"Onchain Mojiemoji"',
@@ -840,8 +850,16 @@ contract EMJ is
         uint256 range = _wordSnapshotAtBatchStart[batchStart];
         uint256 idx = uint256(keccak256(abi.encode(tokenId))) % range;
         bytes memory text = dictionary.wordAt(idx);
+        // ADR-0005: word lives in the /emoji/<word> path segment; font/color/
+        // animation/speed are derived deterministically from tokenId and appended
+        // as the query string. The `/emoji/` form returns image/* (the legacy
+        // `/?text=` form returned the HTML SPA shell — see ADR-0005 D1).
         string memory imageUrl = string(
-            abi.encodePacked("https://mojiemoji.jozo.beer/?text=", _percentEncode(text))
+            abi.encodePacked(
+                "https://mojiemoji.jozo.beer/emoji/",
+                _percentEncode(text),
+                StampParams.paramQuery(tokenId)
+            )
         );
         bytes memory json = abi.encodePacked(
             '{"name":"Onchain Mojiemoji #',
