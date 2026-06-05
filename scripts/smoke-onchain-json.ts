@@ -29,12 +29,21 @@ const decode = (uri: string): unknown => {
 const BROWSER_UA =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+// Cap each image fetch so a stalled endpoint (or DNS/network failure) surfaces
+// as a deterministic error instead of hanging the smoke (and CI) indefinitely.
+const IMAGE_FETCH_TIMEOUT_MS = 10_000
+
 // ADR-0005 regression guard: the `image` field MUST resolve to an actual image
 // (Content-Type: image/*). The retired `/?text=` form returned the HTML SPA
 // shell (text/html), which is exactly the bug this fix closes — so a text/html
 // response here means the metadata regressed back to the broken URL form.
 const assertImage = async (url: string, label: string): Promise<void> => {
-    const res = await fetch(url, { headers: { "User-Agent": BROWSER_UA } })
+    const res = await fetch(url, {
+        headers: { "User-Agent": BROWSER_UA },
+        signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+    }).catch((cause) => {
+        throw new Error(`${label}: fetch failed (timeout ${IMAGE_FETCH_TIMEOUT_MS}ms / network) — ${url}: ${cause}`)
+    })
     const contentType = res.headers.get("content-type") ?? ""
     if (!res.ok || !contentType.startsWith("image/")) {
         throw new Error(`${label}: expected HTTP 200 image/*, got HTTP ${res.status} "${contentType}" — ${url}`)
