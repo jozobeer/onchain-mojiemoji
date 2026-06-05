@@ -67,7 +67,7 @@ Transparent proxy ではアップグレード権限が EMJ 本体ではなく、
 この 2 ロール分裂を運用で埋めるための規律（deploy 時だけでなく**継続的な義務**）:
 
 1. **deploy 時**: ProxyAdmin の owner を、EMJ の `Ownable2Step` owner と**同一の multisig** に設定する。
-2. **ownership rotation 時**: EMJ owner と ProxyAdmin owner は**必ず同時に**移管する。片方だけ移すと、アップグレード権限が旧 owner に取り残される（#36 が severity 高と評価したトラップ）。
+2. **ownership rotation 時**: EMJ owner と ProxyAdmin owner は**必ず同時に**移管する。片方だけ移すと、アップグレード権限が旧 owner に取り残される（#36 が severity 高と評価したトラップ）。なお rotation 安全性は両ロールで非対称: EMJ owner は `Ownable2StepUpgradeable`（transfer → pendingOwner の accept の 2 段階。accept 前なら誤った宛先を撤回できる）だが、ProxyAdmin は OZ v4.9.6 で `Ownable`（`transferOwnership` 一発、accept 段階なし — 実測確認済）なので、宛先を誤ると**アップグレード権限を恒久喪失**する。ProxyAdmin owner の移管は宛先を二重確認すること。
 3. アップグレード実行は `scripts/upgrade.ts` の `upgrades.upgradeProxy(...)`（ProxyAdmin 経由）で機能する（既に配線済み）。
 
 これにより UUPS の「owner == upgrader」性質を Transparent でも実現する。
@@ -101,7 +101,7 @@ deploy / const / test の `deployProxy` 呼び出しは `kind` 無指定のま�
 本決定はトレードオフであり、UUPS なら得られたものを意図的に手放す:
 
 - **アップグレード権限が 2 ロールに分裂する**: ProxyAdmin owner ≠ EMJ の `Ownable2Step` owner。UUPS なら 1 ロールに集約できた（Dictionary はその形）。#36 はこの分裂を severity 高と評価。
-- **継続的な運用義務**: §D3 の「両ロール同時移管」を deploy 後もずっと守る必要がある。同一 multisig 運用が mitigation だが、これは deploy-time の一回設定ではなく**規律依存の継続義務**。怠るとアップグレード権限が取り残される。
+- **継続的な運用義務**: §D3 の「両ロール同時移管」を deploy 後もずっと守る必要がある。同一 multisig 運用が mitigation だが、これは deploy-time の一回設定ではなく**規律依存の継続義務**。怠るとアップグレード権限が取り残される。さらに ProxyAdmin 側の rotation は single-step（OZ v4 `Ownable`）で、EMJ 側の two-step（`Ownable2Step`）より移管事故に弱い（typo が即恒久喪失。§D3-2 参照）。
 - **後から UUPS 化は不可**: 稼働中の Transparent proxy を UUPS へ「アップグレードで変換」することはできない。真の UUPS 化 = 新規 proxy + token 移行 ≒ リローンチ。だから**本番に出る前の今**確定するのが最も安い。
 - **薄い headroom**: 466 B しか余裕がない。将来 EMJ に機能を足すと、proxy 種別と無関係に EIP-170 対策（metadata library 抽出など）が必要になり得る。
 
