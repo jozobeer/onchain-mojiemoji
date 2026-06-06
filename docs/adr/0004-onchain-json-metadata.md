@@ -72,7 +72,7 @@ function contractURI() public view returns (string memory) {
 
 `baseURI` (string public) / `setBaseURI` / `_baseURI()` / `checkSuffix` modifier は**完全に維持**する。理由:
 
-- UUPS storage layout 互換性が壊れない（最も安全）
+- proxy storage layout 互換性が壊れない（最も安全。layout 規律は proxy 種別非依存 — ADR-0006）
 - ERC721 metadata extension 系の tooling (etherscan の標準 ABI 検査など) が `setBaseURI` を呼んでも例外で死なない
 - `contractURI` が baseURI を読まなくなるので `baseURI` は dead state になるが、書き込みは依然可能（無害）
 - 将来「やっぱり外部 URL に戻したい」となった場合の選択肢を奪わない
@@ -109,7 +109,7 @@ import { Base64Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/Bas
 - **on-chain 完結**: IPFS / Arweave 不要、Dream「永続化」と整合
 - **Dream「URL = 画像」維持**: mojiemoji URL は `image` フィールドに格納されて生きる
 - **attributes 拡張余地**: 将来 `font` / `color` 等の Param を attributes に追加できる土台ができる
-- **storage layout 安全**: baseURI 系を残すので UUPS upgrade 互換性に変更なし
+- **storage layout 安全**: baseURI 系を残すので proxy upgrade 互換性に変更なし
 
 ### Cons
 
@@ -130,7 +130,7 @@ import { Base64Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/Bas
 
 ### マイグレーション
 
-- UUPS proxy upgrade で実装差し替えのみ。storage layout 不変なので OZ Upgrades plugin の `validateUpgrade` が通る
+- Transparent proxy upgrade で実装差し替えのみ。storage layout 不変なので OZ Upgrades plugin の `validateUpgrade` が通る
 - 既存 token の tokenURI / contractURI 文字列値が変わる（外部 URL → data: URI）。marketplace 側 cache の更新を待つ必要あり
 
 ## 関連

@@ -196,7 +196,7 @@ contract EMJ is
     /**
      * @dev DEPRECATED (ADR-0004 D1). No longer read by `tokenURI` / `contractURI`,
      * but the storage slot, setter, and `_baseURI()` override are retained for
-     * UUPS storage layout compatibility and ERC721 metadata extension tooling
+     * proxy storage layout compatibility and ERC721 metadata extension tooling
      * compatibility. Writing this slot has no effect on the metadata output.
      */
     string public baseURI;
@@ -747,7 +747,7 @@ contract EMJ is
     //////////////////////////////////
     //// Token URI (Dream — Dictionary-derived mojiemoji URL)
     ////
-    //// Storage layout note: this contract is upgradeable (UUPS proxy). New state
+    //// Storage layout note: this contract is upgradeable (Transparent proxy — ADR-0006). New state
     //// variables MUST be appended at the end of the existing layout to preserve
     //// slot assignments of all previously declared state. `_stampText` was the
     //// original ADR-0001 entry-point storage; it is retained as-is for layout
