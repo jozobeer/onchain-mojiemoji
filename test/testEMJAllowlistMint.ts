@@ -7,6 +7,15 @@ import { deployFreshEMJ } from "../libraries/const"
 import createMerkleTree from "../libraries/createMerkleTree"
 
 describe("Mint ALC as allowlisted member", () => {
+    it("Mint limit is set, then allowlistMintLastTokenId should be set", async () => {
+        const instance = await deployFreshEMJ()
+
+        await instance.setMintLimit(300)
+
+        expect(await instance.mintLimit()).to.equal(300)
+        expect(await instance.allowlistMintLastTokenId()).to.equal(300)
+    })
+
     it("Allowlisted member can mint", async () => {
         const instance = await deployFreshEMJ()
 

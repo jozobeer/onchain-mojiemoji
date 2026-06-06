@@ -78,8 +78,6 @@ contract EMJ is
         allowlistMintPrice = 0.01 ether;
         allowlistedMemberMintLimit = 1;
         allowlistSaleId = 0;
-        revealTimestamp = 0;
-        _keccakPrefix = "EMJ_";
         _royaltyFraction = 0;
         _royaltyReceiver = msg.sender;
         _withdrawalReceiver = msg.sender;
@@ -276,40 +274,6 @@ contract EMJ is
             '"}'
         );
         return string(abi.encodePacked("data:application/json;base64,", Base64Upgradeable.encode(json)));
-    }
-
-    //////////////////////////////////
-    //// Keccak Prefix
-    //////////////////////////////////
-
-    string private _keccakPrefix;
-
-    /**
-     * @dev set keccak prefix.
-     * @param prefix keccak prefix.
-     */
-    function setKeccakPrefix(string memory prefix) external onlyOwner {
-        _keccakPrefix = prefix;
-    }
-
-    //////////////////////////////////
-    //// Reveal
-    //////////////////////////////////
-
-    event RevealTimestampChanged(uint256 timestamp);
-
-    /**
-     * @notice reveal timestamp.
-     */
-    uint256 public revealTimestamp;
-
-    /**
-     * @dev set reveal timestamp.
-     * @param timestamp reveal timestamp.
-     */
-    function setRevealTimestamp(uint256 timestamp) external onlyOwner {
-        revealTimestamp = timestamp;
-        emit RevealTimestampChanged(timestamp);
     }
 
     ///////////////////////////////////////////////////////////////////

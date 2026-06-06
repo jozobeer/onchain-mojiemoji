@@ -59,14 +59,6 @@ async function main() {
     await instance.setAllowlistMintPrice(parseEther("0.005"), { nonce: nonce++ })
 
     ///////////////////////////////////////////////////////////////////
-    //// Reveal
-    ///////////////////////////////////////////////////////////////////
-
-    await instance.setKeccakPrefix("EMJ_", { nonce: nonce++ })
-    const revealTime = new Date("2023-11-01T00:00:00Z")
-    await instance.setRevealTimestamp(Math.floor(revealTime.getTime() / 1000), { nonce: nonce++ })
-
-    ///////////////////////////////////////////////////////////////////
     //// Royalty
     ///////////////////////////////////////////////////////////////////
 
