@@ -5,10 +5,15 @@ import HardhatRuntimeUtility from "../libraries/HardhatRuntimeUtility"
 
 async function main() {
     const util = new HardhatRuntimeUtility(env)
-    if (await util.isProxyDeployed()) throw Error("Proxy has already been deployed! 'Upgrade' instead.")
+    if (await util.isProxiesDeployed(2)) throw Error("EMJ proxy already deployed! Run 'upgrade' instead.")
+    if (!(await util.isProxiesDeployed(1))) throw Error("Deploy Dictionary first: pnpm run deploy:dictionary:sepolia")
+
+    const [{ address: dictAddress }] = await util.deployedProxies(1)
 
     const instance = (await upgrades.deployProxy(await latestEMJFactory)) as LatestEMJ
     await instance.deployed()
+
+    await instance.setDictionary(dictAddress)
 
     console.log(await instance.name(), " is deployed to: ", instance.address)
     console.info(

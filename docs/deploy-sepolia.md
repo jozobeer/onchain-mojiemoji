@@ -78,15 +78,25 @@ pnpm compile
 pnpm test
 ```
 
-### 2. Dictionary + EMJ をデプロイ
+### 2. Dictionary をデプロイ・シード
+
+```bash
+pnpm run deploy:dictionary:sepolia
+```
+
+EIP-3860 の init code 制限により、初期語彙は `initialize([])` で空デプロイ後に `addWords` チャンクで注入される。
+`.openzeppelin/sepolia.json` に Dictionary の proxy アドレスが記録される。
+
+### 3. EMJ をデプロイ（Dictionary と自動ワイヤリング）
 
 ```bash
 pnpm run deploy:sepolia
 ```
 
-`.openzeppelin/sepolia.json` が生成されることを確認。以降のアップグレード追跡に必要なため git に追加してよい（proxy アドレスのみ記録、秘密情報なし）。
+内部で `emj.setDictionary(dictAddress)` が呼ばれ、Dictionary と EMJ が接続される。
+`.openzeppelin/sepolia.json` に EMJ の proxy アドレスが追記される（git に追加してよい）。
 
-### 3. 初期化
+### 4. 初期化
 
 `scripts/initialize.ts` の定数（日程・アドレス）を実際の値に書き換えてから実行：
 
@@ -97,13 +107,13 @@ WITHDRAWAL_RECEIVER="$(op read "op://Personal/EMJ/withdrawal receiver")" \
   pnpm run initialize:sepolia
 ```
 
-### 4. Etherscan へ verify
+### 5. Etherscan へ verify
 
 ```bash
 pnpm run verify:sepolia
 ```
 
-### 5. 動作確認
+### 6. 動作確認
 
 ```bash
 pnpm run proxy:sepolia    # proxy アドレスを確認

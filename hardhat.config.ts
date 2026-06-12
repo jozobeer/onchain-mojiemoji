@@ -31,6 +31,8 @@ task("exportAllowlist")
     .setDescription("Export hashed-allowlist addresses to a JSON file")
     .setAction(exportHashedAllowlistJsonTask)
 
+task("rpcCheck").setDescription("Checks RPC connectivity and chainId").setAction(checkRpcTask)
+
 const accounts = [process.env.DEPLOY_WALLET_PRIVATE_KEY].filter((elm?: string): elm is string => elm !== undefined)
 
 const testAccounts = [

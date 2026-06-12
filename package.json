@@ -62,6 +62,7 @@
     "proxy": "hardhat proxyAddress",
     "rpc:check:sepolia": "hardhat rpcCheck --network sepolia",
     "rpc:check:mainnet": "hardhat rpcCheck --network mainnet",
+    "deploy:dictionary:sepolia": "hardhat run scripts/deployDictionary.ts --network sepolia",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "initialize:sepolia": "hardhat run scripts/initialize.ts --network sepolia",
     "upgrade:sepolia": "hardhat run scripts/upgrade.ts --network sepolia",

@@ -1,4 +1,4 @@
-import { parseEther } from "ethers"
+import { ZeroAddress, parseEther } from "ethers"
 import env, { ethers } from "hardhat"
 
 import { LatestEMJ, latestEMJFactory } from "../libraries/const"
@@ -25,11 +25,17 @@ const ALLOWLIST_MINT_PRICE = parseEther("0.005")
 /** EIP-2981 royalty fraction in basis points (500 = 5%). */
 const ROYALTY_FRACTION = 500
 
+const requireAddress = (envVar: string): string => {
+    const value = process.env[envVar]
+    if (!value || value === ZeroAddress) throw new Error(`${envVar} must be set to a non-zero address`)
+    return value
+}
+
 /** Address that receives EIP-2981 royalty payments. Must be set before running. */
-const ROYALTY_RECEIVER = process.env.ROYALTY_RECEIVER ?? "0x0000000000000000000000000000000000000000"
+const ROYALTY_RECEIVER = requireAddress("ROYALTY_RECEIVER")
 
 /** Address that receives withdrawal proceeds. Must be set before running. */
-const WITHDRAWAL_RECEIVER = process.env.WITHDRAWAL_RECEIVER ?? "0x0000000000000000000000000000000000000000"
+const WITHDRAWAL_RECEIVER = requireAddress("WITHDRAWAL_RECEIVER")
 // ──────────────────────────────────────────────────────────────────────────────
 
 async function main() {
