@@ -59,6 +59,14 @@
     "coverage": "hardhat coverage",
     "verify": "hardhat verifyProxy",
     "balance": "hardhat balance",
-    "proxy": "hardhat proxyAddress"
+    "proxy": "hardhat proxyAddress",
+    "rpc:check:sepolia": "hardhat rpcCheck --network sepolia",
+    "rpc:check:mainnet": "hardhat rpcCheck --network mainnet",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "initialize:sepolia": "hardhat run scripts/initialize.ts --network sepolia",
+    "upgrade:sepolia": "hardhat run scripts/upgrade.ts --network sepolia",
+    "verify:sepolia": "hardhat verifyProxy --network sepolia",
+    "balance:sepolia": "hardhat balance --network sepolia",
+    "proxy:sepolia": "hardhat proxyAddress --network sepolia"
   }
 }
