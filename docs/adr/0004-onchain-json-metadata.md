@@ -108,7 +108,7 @@ import { Base64Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/Bas
 - **marketplace 標準準拠**: OpenSea / LooksRare 等で collection / token metadata が正しく表示される
 - **on-chain 完結**: IPFS / Arweave 不要、Dream「永続化」と整合
 - **Dream「URL = 画像」維持**: mojiemoji URL は `image` フィールドに格納されて生きる
-- **attributes 拡張余地**: 将来 `font` / `color` 等の Param を attributes に追加できる土台ができる
+- **attributes 拡張余地**: 将来 `font` / `color` 等の Param を attributes に追加できる土台ができる（→ 後日 ADR-0005 派生の 4 Param を trait 化して実現。本 ADR § フォローアップ参照）
 - **storage layout 安全**: baseURI 系を残すので proxy upgrade 互換性に変更なし
 
 ### Cons
@@ -132,6 +132,37 @@ import { Base64Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/Bas
 
 - Transparent proxy upgrade で実装差し替えのみ。storage layout 不変なので OZ Upgrades plugin の `validateUpgrade` が通る
 - 既存 token の tokenURI / contractURI 文字列値が変わる（外部 URL → data: URI）。marketplace 側 cache の更新を待つ必要あり
+
+## フォローアップ — Stamp Param を attributes に trait 化（2026-06-13）
+
+採択時に上記 Pros「attributes 拡張余地」で予告した拡張を実現した。ADR-0005 で `tokenId` ハッシュから決定論的に派生する 4 Param（`font` / `color` / `animation` / `speed`）を、image URL のクエリに載せるだけでなく **OpenSea trait としても attributes 配列に並べる**。これで marketplace 側で Param 値によるコレクションのフィルタ・ソートが効くようになる。
+
+```solidity
+// tokenURI 内（image URL は ADR-0005 の /emoji/ 形）
+'","attributes":[{"trait_type":"word","value":"', _jsonEscape(text),
+'"},', StampParams.attributesJson(tokenId), "]}"
+```
+
+`attributes` は word（1 件）＋ Param（4 件）＝ **5 trait** になる。設計判断:
+
+- **`StampParams.attributesJson(tokenId)`** を `paramQuery` と対称に新設し、ブラケットなしの trait 片
+  （`{"trait_type":"font","value":"…"},…,{"trait_type":"speed","value":"…"}`）を返す。
+  既存 word trait の後ろに splice できる形にして、配列の開閉は呼び出し側 `tokenURI` が持つ。
+- 派生は `paramQuery` と**同一の `ph`・同一の `_fontAt/_colorAt/_animationAt/_speedAt`** を再利用。
+  これで trait 値と image URL のクエリ値は構造的に常に一致する（テストで coherence を固定）。
+- `color` は URL クエリと同じく **`#` なしの生 hex**。Param 値はすべて URL-safe ASCII 識別子で
+  `"` / `\` / 制御文字を含まないため、JSON エスケープは不要（word のみ `_jsonEscape` 対象）。
+- StampParams は storage を持たない pure library のままで、upgrade-safe 性（ADR-0005 / ADR-0006）に影響しない。
+
+ADR-0005 § Decision の「公開 API は `paramQuery` の 1 本」は、本フォローアップで `attributesJson` を加えた **2 本**に拡張された（派生スキーム自体は不変）。
+
+### 影響範囲（フォローアップ分）
+
+| ファイル | 変更 |
+|---|---|
+| `contracts/StampParams.sol` | `attributesJson(uint256)` 追加（`paramQuery` と対称、helper 再利用） |
+| `contracts/EMJ.sol` | `tokenURI` の attributes に word trait の後ろで `StampParams.attributesJson(tokenId)` を splice |
+| `test/testEMJTokenURIMetadata.ts` | attributes 件数 1→5 へ更新、Param trait の order / オラクル照合 / URL 整合 / 固定サンプル / domain 分離テスト追加 |
 
 ## 関連
 

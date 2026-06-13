@@ -834,7 +834,13 @@ contract EMJ is
             imageUrl,
             '","attributes":[{"trait_type":"word","value":"',
             _jsonEscape(text),
-            '"}]}'
+            // ADR-0005: surface the four derived Stamp Params (font / color /
+            // animation / speed) as OpenSea traits so marketplaces can filter on
+            // them. StampParams.attributesJson returns a bracket-less fragment
+            // spliced right after the leading `word` trait.
+            '"},',
+            StampParams.attributesJson(tokenId),
+            "]}"
         );
         return string(abi.encodePacked("data:application/json;base64,", Base64Upgradeable.encode(json)));
     }

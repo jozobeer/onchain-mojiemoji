@@ -4,7 +4,8 @@ import { ethers, upgrades } from "hardhat"
 import { describe, it } from "mocha"
 
 import { LatestEMJ, latestEMJFactory } from "../libraries/const"
-import { decodeTokenMetadata } from "./helpers/metadata"
+import { ANIMATIONS, COLORS, FONTS, SPEEDS, deriveStampParams } from "../libraries/stampParams"
+import { TokenMetadata, decodeTokenMetadata } from "./helpers/metadata"
 
 // ADR-0004: tokenURI returns `data:application/json;base64,<base64(JSON)>` where
 // the decoded JSON is OpenSea-standard token metadata. Tests here lock the
@@ -14,6 +15,9 @@ import { decodeTokenMetadata } from "./helpers/metadata"
 // the same function: structure vs derivation.
 
 const word = (s: string): Uint8Array => toUtf8Bytes(s)
+
+const traitValue = (meta: TokenMetadata, traitType: string): string | undefined =>
+    meta.attributes.find((a) => a.trait_type === traitType)?.value
 
 const deployDictionary = async (initialWords: Uint8Array[]): Promise<Contract> => {
     const factory = await ethers.getContractFactory("Dictionary")
@@ -89,11 +93,11 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
     })
 
     describe("Attributes field", () => {
-        it("Includes attributes array with one entry", async () => {
+        it("Includes attributes array with five entries (word + four stamp params)", async () => {
             const { emj } = await deployEMJWithDict(["勝った"])
             await emj.adminMint(1)
             const meta = decodeTokenMetadata(await emj.tokenURI(1))
-            expect(meta.attributes).to.be.an("array").with.length(1)
+            expect(meta.attributes).to.be.an("array").with.length(5)
         })
 
         it("Attribute entry has trait_type 'word'", async () => {
@@ -119,6 +123,89 @@ describe("EMJ TokenURI (OpenSea metadata structure)", () => {
             expect(meta.attributes[0].value).to.equal("焼く")
             // Image is percent-encoded so it differs from the attribute value.
             expect(meta.image).to.contain("%E7%84%BC%E3%81%8F")
+        })
+    })
+
+    describe("Stamp Param attributes (ADR-0005 params surfaced as traits)", () => {
+        // The four Stamp Params (font / color / animation / speed) that ADR-0005
+        // derives for the image URL are also exposed as OpenSea traits, so
+        // marketplaces can filter/sort by them. The values mirror the image
+        // URL's query params exactly (color stays the bare hex, no leading '#'),
+        // and are verified against the same independent oracle used in
+        // testEMJStampParams.ts.
+
+        const PARAM_TRAITS = ["font", "color", "animation", "speed"] as const
+
+        it("attributes array carries word + font + color + animation + speed", async () => {
+            const { emj } = await deployEMJWithDict(["勝った"])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect(meta.attributes.map((a) => a.trait_type)).to.deep.equal([
+                "word",
+                "font",
+                "color",
+                "animation",
+                "speed",
+            ])
+        })
+
+        PARAM_TRAITS.forEach((trait) => {
+            it(`includes a "${trait}" trait whose value matches the derivation oracle`, async () => {
+                const { emj } = await deployEMJWithDict(["勝った"])
+                await emj.adminMint(1)
+                const meta = decodeTokenMetadata(await emj.tokenURI(1))
+                expect(traitValue(meta, trait)).to.equal(deriveStampParams(1)[trait])
+            })
+        })
+
+        it("param trait values are drawn from the canonical candidate sets (1..24)", async () => {
+            const { emj } = await deployEMJWithDict(["焼く", "勝った", "光る"])
+            await emj.adminMint(24)
+            const ids = Array.from({ length: 24 }, (_, i) => i + 1)
+            const metas = await Promise.all(ids.map(async (id) => decodeTokenMetadata(await emj.tokenURI(id))))
+            metas.forEach((meta, i) => {
+                const ctx = `token #${ids[i]}`
+                expect(FONTS as readonly string[], ctx).to.include(traitValue(meta, "font"))
+                expect(COLORS as readonly string[], ctx).to.include(traitValue(meta, "color"))
+                expect(ANIMATIONS as readonly string[], ctx).to.include(traitValue(meta, "animation"))
+                expect(SPEEDS as readonly string[], ctx).to.include(traitValue(meta, "speed"))
+            })
+        })
+
+        it("param trait values equal the image URL's query params (coherence)", async () => {
+            const { emj } = await deployEMJWithDict(["焼く"])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            const q = new URL(meta.image).searchParams
+            PARAM_TRAITS.forEach((trait) => {
+                expect(traitValue(meta, trait), trait).to.equal(q.get(trait))
+            })
+        })
+
+        it("pins token #1 params to a concrete sample (regression anchor)", async () => {
+            const { emj } = await deployEMJWithDict(["焼く"])
+            await emj.adminMint(1)
+            const meta = decodeTokenMetadata(await emj.tokenURI(1))
+            expect({
+                font: traitValue(meta, "font"),
+                color: traitValue(meta, "color"),
+                animation: traitValue(meta, "animation"),
+                speed: traitValue(meta, "speed"),
+            }).to.deep.equal({ font: "gothic-bold", color: "3665f2", animation: "kaiten", speed: "normal" })
+        })
+
+        it("derives identical param traits regardless of Dictionary contents (domain separation)", async () => {
+            const { emj: emjA } = await deployEMJWithDict(["焼く"])
+            await emjA.adminMint(1)
+            const { emj: emjB } = await deployEMJWithDict(["AAA", "BBB", "CCC", "DDD", "EEE"])
+            await emjB.adminMint(1)
+
+            const a = decodeTokenMetadata(await emjA.tokenURI(1))
+            const b = decodeTokenMetadata(await emjB.tokenURI(1))
+            PARAM_TRAITS.forEach((trait) => {
+                expect(traitValue(a, trait), trait).to.equal(traitValue(b, trait))
+                expect(traitValue(a, trait), trait).to.equal(deriveStampParams(1)[trait])
+            })
         })
     })
 
