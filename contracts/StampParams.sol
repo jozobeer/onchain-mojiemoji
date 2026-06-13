@@ -53,6 +53,38 @@ library StampParams {
             );
     }
 
+    /**
+     * @dev Returns the OpenSea-trait JSON fragment for the four Stamp Params
+     * deterministically derived from `tokenId`:
+     *
+     *   {"trait_type":"font","value":"..."},{"trait_type":"color","value":"..."},
+     *   {"trait_type":"animation","value":"..."},{"trait_type":"speed","value":"..."}
+     *
+     * The fragment carries NO enclosing `[ ]` so callers can splice it into an
+     * existing `attributes` array after a leading trait (e.g. `word`). The
+     * Param values mirror `paramQuery` exactly (same derivation, same bare
+     * values — `color` is the unprefixed hex), so the trait set and the image
+     * URL's query string always agree. All Param values are URL-safe ASCII
+     * identifiers (no `"`, `\`, or control bytes), so no JSON escaping is needed.
+     */
+    function attributesJson(uint256 tokenId) internal pure returns (string memory) {
+        uint256 ph = uint256(keccak256(abi.encode(_PARAM_SALT, tokenId)));
+        return
+            string(
+                abi.encodePacked(
+                    '{"trait_type":"font","value":"',
+                    _fontAt(ph & 0xF),
+                    '"},{"trait_type":"color","value":"',
+                    _colorAt((ph >> 4) & 0x3F),
+                    '"},{"trait_type":"animation","value":"',
+                    _animationAt((ph >> 10) & 0x1F),
+                    '"},{"trait_type":"speed","value":"',
+                    _speedAt((ph >> 15) & 0x3),
+                    '"}'
+                )
+            );
+    }
+
     function _fontAt(uint256 i) private pure returns (string memory) {
         string[16] memory fonts = [
             "gothic",
