@@ -8,6 +8,7 @@ import { HardhatUserConfig, task } from "hardhat/config"
 import CryptoWallet from "./libraries/CryptoWallet"
 import checkBalanceTask from "./tasks/checkBalanceTask"
 import checkProxyAddressTask from "./tasks/checkProxyAddressTask"
+import checkRpcTask from "./tasks/checkRpcTask"
 import exportHashedAllowlistJsonTask from "./tasks/exportHashedAllowlistJsonTask"
 import verifyTask from "./tasks/verifyTask"
 
@@ -30,7 +31,9 @@ task("exportAllowlist")
     .setDescription("Export hashed-allowlist addresses to a JSON file")
     .setAction(exportHashedAllowlistJsonTask)
 
-const accounts = [process.env.DEPROY_WALLET_PRIVATE_KEY].filter((elm?: string): elm is string => elm !== undefined)
+task("rpcCheck").setDescription("Checks RPC connectivity and chainId").setAction(checkRpcTask)
+
+const accounts = [process.env.DEPLOY_WALLET_PRIVATE_KEY].filter((elm?: string): elm is string => elm !== undefined)
 
 const testAccounts = [
     process.env.TEST_WALLET_PRIVATE_KEY,
